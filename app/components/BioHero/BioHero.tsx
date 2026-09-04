@@ -83,7 +83,7 @@ export function BioHero() {
               <div className={styles.logoGlow} aria-hidden="true" />
 
               <Image
-                src="/images/brasao-logo.jpg"
+                src="/images/logo-brasao.jpg"
                 alt={DATA.name}
                 width={420}
                 height={420}
