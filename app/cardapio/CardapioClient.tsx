@@ -7,9 +7,7 @@ import {
   useState,
 } from 'react'
 
-import {
-  useSearchParams,
-} from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 import { SITE_CONFIG } from '@/app/config/site'
 import styles from './Cardapio.module.css'
@@ -88,7 +86,9 @@ function formatPrice(value: number) {
 }
 
 function formatPhone(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 11)
+  const digits = value
+    .replace(/\D/g, '')
+    .slice(0, 11)
 
   if (digits.length <= 2) {
     return digits
@@ -98,14 +98,10 @@ function formatPhone(value: string) {
     return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
   }
 
-  if (digits.length <= 11) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(
-      2,
-      7
-    )}-${digits.slice(7)}`
-  }
-
-  return value
+  return `(${digits.slice(0, 2)}) ${digits.slice(
+    2,
+    7
+  )}-${digits.slice(7)}`
 }
 
 function normalizePhone(phone: string) {
@@ -155,7 +151,8 @@ export default function CardapioClient({
       categories[0]?.id ?? null
     )
 
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [cart, setCart] =
+    useState<CartItem[]>([])
 
   const [cartOpen, setCartOpen] =
     useState(false)
@@ -286,7 +283,9 @@ export default function CardapioClient({
     setCartOpen(true)
   }
 
-  function increaseQuantity(productId: number) {
+  function increaseQuantity(
+    productId: number
+  ) {
     setCart((currentCart) =>
       currentCart.map((item) =>
         item.product.id === productId
@@ -300,7 +299,9 @@ export default function CardapioClient({
     )
   }
 
-  function decreaseQuantity(productId: number) {
+  function decreaseQuantity(
+    productId: number
+  ) {
     setCart((currentCart) =>
       currentCart
         .map((item) =>
@@ -313,12 +314,15 @@ export default function CardapioClient({
             : item
         )
         .filter(
-          (item) => item.quantity > 0
+          (item) =>
+            item.quantity > 0
         )
     )
   }
 
-  function removeFromCart(productId: number) {
+  function removeFromCart(
+    productId: number
+  ) {
     setCart((currentCart) =>
       currentCart.filter(
         (item) =>
@@ -383,11 +387,10 @@ export default function CardapioClient({
         setCustomer({
           name:
             data.customer.name ?? '',
-          phone:
-            formatPhone(
-              data.customer.phone ??
-                normalized
-            ),
+          phone: formatPhone(
+            data.customer.phone ??
+              normalized
+          ),
           address:
             data.customer.address ?? '',
           number:
@@ -608,7 +611,9 @@ export default function CardapioClient({
 
     lines.push('')
 
-    lines.push('*ITENS DO PEDIDO*')
+    lines.push(
+      '*ITENS DO PEDIDO*'
+    )
 
     cart.forEach((item) => {
       const subtotal =
@@ -625,7 +630,9 @@ export default function CardapioClient({
     lines.push('')
 
     lines.push(
-      `*TOTAL: ${formatPrice(cartTotal)}*`
+      `*TOTAL: ${formatPrice(
+        cartTotal
+      )}*`
     )
 
     lines.push('')
@@ -665,13 +672,19 @@ export default function CardapioClient({
       deliveryMethod === 'delivery'
     ) {
       lines.push('')
-      lines.push('*DADOS PARA ENTREGA*')
+
+      lines.push(
+        '*DADOS PARA ENTREGA*'
+      )
+
       lines.push(
         `Nome: ${customer.name}`
       )
+
       lines.push(
         `Telefone: ${customer.phone}`
       )
+
       lines.push(
         `Endereço: ${customer.address}, ${customer.number}`
       )
@@ -693,9 +706,11 @@ export default function CardapioClient({
       }
     } else {
       lines.push('')
+
       lines.push(
         `Nome: ${customer.name}`
       )
+
       lines.push(
         `Telefone: ${customer.phone}`
       )
@@ -712,9 +727,10 @@ export default function CardapioClient({
     const message =
       buildWhatsAppMessage()
 
-    const url = `https://wa.me/${SITE_CONFIG.whatsapp.number}?text=${encodeURIComponent(
-      message
-    )}`
+    const url =
+      `https://wa.me/${SITE_CONFIG.whatsapp.number}?text=${encodeURIComponent(
+        message
+      )}`
 
     window.open(
       url,
@@ -1042,6 +1058,7 @@ export default function CardapioClient({
                   addToCart(
                     productModal
                   )
+
                   setProductModal(
                     null
                   )
@@ -1298,9 +1315,7 @@ export default function CardapioClient({
                     styles.checkoutHeader
                   }
                 >
-                  <span>
-                    01
-                  </span>
+                  <span>01</span>
 
                   <h2>
                     Seus dados
@@ -1324,14 +1339,11 @@ export default function CardapioClient({
                     value={
                       customer.phone
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       updateCustomer(
                         'phone',
                         formatPhone(
-                          event
-                            .target
+                          event.target
                             .value
                         )
                       )
@@ -1373,13 +1385,10 @@ export default function CardapioClient({
                     value={
                       customer.name
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       updateCustomer(
                         'name',
-                        event
-                          .target
+                        event.target
                           .value
                       )
                     }
@@ -1405,13 +1414,10 @@ export default function CardapioClient({
                         value={
                           customer.address
                         }
-                        onChange={(
-                          event
-                        ) =>
+                        onChange={(event) =>
                           updateCustomer(
                             'address',
-                            event
-                              .target
+                            event.target
                               .value
                           )
                         }
@@ -1444,8 +1450,7 @@ export default function CardapioClient({
                           ) =>
                             updateCustomer(
                               'number',
-                              event
-                                .target
+                              event.target
                                 .value
                             )
                           }
@@ -1475,8 +1480,7 @@ export default function CardapioClient({
                           ) =>
                             updateCustomer(
                               'complement',
-                              event
-                                .target
+                              event.target
                                 .value
                             )
                           }
@@ -1500,13 +1504,10 @@ export default function CardapioClient({
                         value={
                           customer.neighborhood
                         }
-                        onChange={(
-                          event
-                        ) =>
+                        onChange={(event) =>
                           updateCustomer(
                             'neighborhood',
-                            event
-                              .target
+                            event.target
                               .value
                           )
                         }
@@ -1531,13 +1532,10 @@ export default function CardapioClient({
                         value={
                           customer.reference
                         }
-                        onChange={(
-                          event
-                        ) =>
+                        onChange={(event) =>
                           updateCustomer(
                             'reference',
-                            event
-                              .target
+                            event.target
                               .value
                           )
                         }
@@ -1655,9 +1653,7 @@ export default function CardapioClient({
                     styles.checkoutHeader
                   }
                 >
-                  <span>
-                    02
-                  </span>
+                  <span>02</span>
 
                   <h2>
                     Pagamento
@@ -1764,13 +1760,10 @@ export default function CardapioClient({
                       value={
                         changeFor
                       }
-                      onChange={(
-                        event
-                      ) =>
+                      onChange={(event) =>
                         setChangeFor(
                           formatChange(
-                            event
-                              .target
+                            event.target
                               .value
                           )
                         )
@@ -1778,8 +1771,7 @@ export default function CardapioClient({
                     />
 
                     <small>
-                      Pedido:
-                      {' '}
+                      Pedido:{' '}
                       {formatPrice(
                         cartTotal
                       )}
@@ -1837,9 +1829,7 @@ export default function CardapioClient({
                     styles.checkoutHeader
                   }
                 >
-                  <span>
-                    03
-                  </span>
+                  <span>03</span>
 
                   <h2>
                     Confirmar pedido
