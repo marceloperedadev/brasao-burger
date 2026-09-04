@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+
 import './globals.css'
 
 const inter = Inter({
@@ -8,13 +9,16 @@ const inter = Inter({
 })
 
 // =========================================================
-// SITE
+// SITE CONFIG — BRASÃO BURGER
 // =========================================================
 
-const SITE_URL = 'https://geek-wizards-cafe.vercel.app'
-const SITE_NAME = 'Geek Wizards Café'
+const SITE_URL = 'https://brasao-burger.vercel.app'
+const SITE_NAME = 'Brasão Burger'
+
 const SITE_DESCRIPTION =
-  'Cafeteria temática e loja geek em Taubaté. Cafés mágicos, doces, jogos de tabuleiro, RPG e experiências para toda a guilda.'
+  'O verdadeiro hambúrguer na parrilla em Taubaté. Ingredientes selecionados, molhos artesanais, porções rústicas e o melhor chope trincando da praça.'
+
+const OG_IMAGE = '/images/brasao-burger.jpg'
 
 // =========================================================
 // METADATA
@@ -24,31 +28,43 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
 
   title: {
-    default: 'Geek Wizards Café | Cafeteria Temática & Loja Geek',
-    template: '%s | Geek Wizards Café',
+    default:
+      'Brasão Burger | Hambúrguer Artesanal na Parrilla em Taubaté',
+    template: '%s | Brasão Burger',
   },
 
   description: SITE_DESCRIPTION,
 
   keywords: [
-    'Geek Wizards Café',
-    'cafeteria geek Taubaté',
-    'cafeteria temática Taubaté',
-    'café geek Taubaté',
-    'RPG Taubaté',
-    'mesas de RPG Taubaté',
-    'jogos de tabuleiro Taubaté',
-    'board games Taubaté',
-    'cafeteria temática',
-    'loja geek Taubaté',
-    'cafés temáticos',
-    'doces temáticos',
-    'delivery Taubaté',
+    'Brasão Burger',
+    'Brasao Burger',
+    'hambúrguer Taubaté',
+    'hambúrguer artesanal Taubaté',
+    'hambúrguer na parrilla Taubaté',
+    'hamburgueria Taubaté',
+    'hamburgueria artesanal Taubaté',
+    'burger artesanal Taubaté',
+    'burger na parrilla',
+    'hambúrguer artesanal',
+    'hamburgueria Centro Taubaté',
+    'lanche Taubaté',
+    'porções Taubaté',
+    'chope Taubaté',
+    'delivery hambúrguer Taubaté',
+    'melhor hambúrguer Taubaté',
   ],
 
-  authors: [{ name: SITE_NAME }],
+  authors: [
+    {
+      name: SITE_NAME,
+    },
+  ],
+
   creator: SITE_NAME,
   publisher: SITE_NAME,
+  applicationName: SITE_NAME,
+
+  category: 'food',
 
   formatDetection: {
     email: false,
@@ -61,33 +77,46 @@ export const metadata: Metadata = {
   },
 
   // =======================================================
-  // OPEN GRAPH & TWITTER (CARD PREVIEWS)
+  // OPEN GRAPH
   // =======================================================
 
   openGraph: {
-    title: 'Geek Wizards Café | Cafeteria Temática & Loja Geek',
-    description:
-      'Cafés mágicos, doces temáticos, RPG, jogos de tabuleiro e experiências geek em Taubaté.',
+    type: 'website',
+    locale: 'pt_BR',
     url: SITE_URL,
     siteName: SITE_NAME,
-    locale: 'pt_BR',
-    type: 'website',
+
+    title:
+      'Brasão Burger | Hambúrguer Artesanal na Parrilla em Taubaté',
+
+    description:
+      'O verdadeiro hambúrguer na parrilla em Taubaté. Ingredientes selecionados, molhos artesanais, porções rústicas e chope trincando.',
+
     images: [
       {
-        url: '/images/geek-wizard.jpg',
+        url: OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: 'Geek Wizards Café',
+        alt:
+          'Brasão Burger — Hambúrguer Artesanal na Parrilla em Taubaté',
       },
     ],
   },
 
+  // =======================================================
+  // TWITTER / X
+  // =======================================================
+
   twitter: {
     card: 'summary_large_image',
-    title: 'Geek Wizards Café | Cafeteria Temática & Loja Geek',
+
+    title:
+      'Brasão Burger | Hambúrguer Artesanal na Parrilla em Taubaté',
+
     description:
-      'Cafés mágicos, doces temáticos, RPG, jogos de tabuleiro e experiências geek em Taubaté.',
-    images: ['/images/geek-wizard.jpg'],
+      'Hambúrguer artesanal na parrilla, ingredientes selecionados, molhos artesanais, porções rústicas e chope trincando em Taubaté.',
+
+    images: [OG_IMAGE],
   },
 
   // =======================================================
@@ -97,6 +126,7 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+
     googleBot: {
       index: true,
       follow: true,
@@ -107,11 +137,12 @@ export const metadata: Metadata = {
   },
 
   // =======================================================
-  // ÍCONE
+  // ICONS
   // =======================================================
 
   icons: {
     icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
   },
 }
 
@@ -124,53 +155,107 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // =======================================================
+  // STRUCTURED DATA — BRASÃO BURGER
+  // =======================================================
+
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'CafeOrCoffeeShop',
+
+    '@type': 'Restaurant',
+
+    '@id': `${SITE_URL}/#restaurant`,
+
     name: SITE_NAME,
+
     description: SITE_DESCRIPTION,
+
     url: SITE_URL,
-    image: `${SITE_URL}/images/geek-wizard.jpg`,
-    telephone: '+5512999999999',
+
+    image: `${SITE_URL}${OG_IMAGE}`,
+
+    telephone: '+5512991234567',
+
     address: {
       '@type': 'PostalAddress',
-      streetAddress: 'Rua Silva Jardim, 97',
+
+      streetAddress: 'Praça Santa Teresinha, 42',
+
       addressLocality: 'Taubaté',
+
       addressRegion: 'SP',
-      postalCode: '12000-000',
+
+      postalCode: '12020-100',
+
       addressCountry: 'BR',
     },
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: -23.0264,
-      longitude: -45.5552,
+
+    areaServed: {
+      '@type': 'City',
+      name: 'Taubaté',
     },
+
     sameAs: [
-      'https://www.instagram.com/geekwizardscafe/',
-      'https://www.facebook.com/geekwizardscafe/',
+      'https://www.instagram.com/brasaoburguer_/',
     ],
-    servesCuisine: ['Café', 'Doces', 'Lanches'],
+
+    servesCuisine: [
+      'Hambúrguer',
+      'Hambúrguer artesanal',
+      'Churrasco',
+      'Lanches',
+    ],
+
     priceRange: '$$',
+
+    menu: 'https://wa.me/5512991234567',
+
     openingHoursSpecification: [
       {
         '@type': 'OpeningHoursSpecification',
+
         dayOfWeek: [
-          'Monday',
           'Tuesday',
           'Wednesday',
           'Thursday',
+        ],
+
+        opens: '18:00',
+        closes: '23:00',
+      },
+
+      {
+        '@type': 'OpeningHoursSpecification',
+
+        dayOfWeek: [
           'Friday',
           'Saturday',
-          'Sunday',
         ],
-        opens: '10:00',
-        closes: '22:00',
+
+        opens: '18:00',
+        closes: '23:30',
+      },
+
+      {
+        '@type': 'OpeningHoursSpecification',
+
+        dayOfWeek: ['Sunday'],
+
+        opens: '18:00',
+        closes: '23:00',
       },
     ],
   }
 
+  // =======================================================
+  // RENDER
+  // =======================================================
+
   return (
-    <html lang="pt-BR" className="scroll-smooth">
+    <html
+      lang="pt-BR"
+      data-scroll-behavior="smooth"
+    >
       <head>
         <script
           type="application/ld+json"
@@ -179,7 +264,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>{children}</body>
+
+      <body className={inter.className}>
+        {children}
+      </body>
     </html>
   )
 }

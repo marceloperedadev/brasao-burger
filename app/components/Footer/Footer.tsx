@@ -1,30 +1,36 @@
 'use client'
 
 import styles from './Footer.module.css'
+import { SITE_CONFIG } from '@/app/config/site'
 
 export function Footer() {
-  const CONFIG = {
-    name: 'Geek Wizards Café',
+  const DATA = {
+    name: 'Brasão Burger',
+
+    tagline: 'Sabor que merece seu nome.',
 
     address:
-      'Rua Silva Jardim, 97 — Jd. das Nações, Taubaté - SP',
+      'Praça Santa Teresinha, 42 — Centro, Taubaté, SP',
 
-    social: {
+    links: {
       instagram:
-        'https://www.instagram.com/geekwizardscafe/',
+        'https://www.instagram.com/brasaoburguer_/',
 
-      facebook:
-        'https://www.facebook.com/geekwizardscafe',
+      whatsapp:
+        SITE_CONFIG.whatsapp.menu,
 
-      rpgGroup:
-        'https://chat.whatsapp.com/L0BD7avJT6jAnv7oQtST4K',
+      location:
+        'https://www.google.com/maps/search/?api=1&query=Pra%C3%A7a+Santa+Teresinha%2C+42%2C+Centro%2C+Taubat%C3%A9%2C+SP',
     },
   }
 
   return (
     <footer className={styles.footerSection}>
 
-      {/* ATMOSFERA ARCANA */}
+      {/* =====================================================
+          BRILHO AMBIENTE
+          ===================================================== */}
+
       <div
         className={styles.footerMagic}
         aria-hidden="true"
@@ -32,19 +38,44 @@ export function Footer() {
 
       <div className={styles.footerContainer}>
 
-        {/* =================================================
-            REDES SOCIAIS
-            ================================================= */}
+        {/* ===================================================
+            MARCA
+            =================================================== */}
 
-        <div className={styles.socialGroup}>
+        <div className={styles.brandHeader}>
+
+          <span className={styles.brandOverline}>
+            Est. Taubaté
+          </span>
+
+          <h2 className={styles.brandName}>
+            {DATA.name}
+          </h2>
+
+          <p className={styles.brandTagline}>
+            {DATA.tagline}
+          </p>
+
+        </div>
+
+
+        {/* ===================================================
+            REDES SOCIAIS
+            =================================================== */}
+
+        <div
+          className={styles.socialGroup}
+          aria-label="Redes e contato"
+        >
 
           {/* INSTAGRAM */}
+
           <a
-            href={CONFIG.social.instagram}
+            href={DATA.links.instagram}
             target="_blank"
             rel="noopener noreferrer"
             className={styles.socialLink}
-            aria-label="Instagram do Geek Wizards Café"
+            aria-label="Instagram do Brasão Burger"
           >
             <svg
               viewBox="0 0 24 24"
@@ -54,29 +85,15 @@ export function Footer() {
             </svg>
           </a>
 
-          {/* FACEBOOK */}
-          <a
-            href={CONFIG.social.facebook}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.socialLink}
-            aria-label="Facebook do Geek Wizards Café"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z" />
-            </svg>
-          </a>
 
-          {/* WHATSAPP / RPG */}
+          {/* WHATSAPP */}
+
           <a
-            href={CONFIG.social.rpgGroup}
+            href={DATA.links.whatsapp}
             target="_blank"
             rel="noopener noreferrer"
             className={styles.socialLink}
-            aria-label="Grupo de RPG no WhatsApp"
+            aria-label="WhatsApp do Brasão Burger"
           >
             <svg
               viewBox="0 0 24 24"
@@ -88,18 +105,56 @@ export function Footer() {
 
         </div>
 
-        {/* LOCALIZAÇÃO */}
-        <p className={styles.locationText}>
-          {CONFIG.address}
-        </p>
 
-        {/* COPYRIGHT */}
-        <p className={styles.copyright}>
-          © {new Date().getFullYear()} {CONFIG.name}.
-          Todos os direitos reservados.
-        </p>
+        {/* ===================================================
+            META / LOCALIZAÇÃO
+            =================================================== */}
+
+        <div className={styles.metaArea}>
+
+          <a
+            href={DATA.links.location}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.location}
+            aria-label="Ver localização do Brasão Burger no Google Maps"
+          >
+
+            <span
+              className={styles.locationDot}
+              aria-hidden="true"
+            />
+
+            <span className={styles.locationText}>
+              {DATA.address}
+            </span>
+
+            <span
+              className={styles.locationArrow}
+              aria-hidden="true"
+            >
+              ↗
+            </span>
+
+          </a>
+
+
+          <div className={styles.footerLine}>
+            <span aria-hidden="true" />
+            <span />
+            <span aria-hidden="true" />
+          </div>
+
+
+          <p className={styles.copyright}>
+            © {new Date().getFullYear()} {DATA.name}.
+            Todos os direitos reservados.
+          </p>
+
+        </div>
 
       </div>
+
     </footer>
   )
 }

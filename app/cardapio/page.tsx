@@ -1,14 +1,9 @@
-
 import { supabase } from '@/lib/supabase'
-
-import { BioHero } from './components/BioHero/BioHero'
-import { HubCards } from './components/HubCards/HubCards'
-import { Gallery } from './components/Gallery/Gallery'
-import { Footer } from './components/Footer/Footer'
+import CardapioClient from './CardapioClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function Home() {
+export default async function CardapioPage() {
   const {
     data: categories,
     error: categoriesError,
@@ -43,12 +38,6 @@ export default async function Home() {
       ascending: true,
     })
 
-  /*
-   * =========================================================
-   * ERRO DE CARREGAMENTO
-   * =========================================================
-   */
-
   if (
     categoriesError ||
     productsError
@@ -71,52 +60,27 @@ export default async function Home() {
           }}
         >
           <h1>
-            Erro ao carregar a página
+            Erro ao carregar o cardápio
           </h1>
 
           <p>
             {categoriesError?.message ||
               productsError?.message ||
-              'Não foi possível carregar os dados.'}
+              'Não foi possível carregar os produtos.'}
           </p>
         </div>
       </main>
     )
   }
 
-  /*
-   * =========================================================
-   * DADOS DO CARDÁPIO
-   * =========================================================
-   */
-
-  const safeCategories =
-    categories ?? []
-
-  const safeProducts =
-    products ?? []
-
-  /*
-   * =========================================================
-   * HOME
-   * =========================================================
-   */
-
   return (
-    <main>
-      <BioHero />
-
-      <HubCards
-        categories={safeCategories}
-        products={safeProducts}
-      />
-
-      <Gallery
-        categories={safeCategories}
-        products={safeProducts}
-      />
-
-      <Footer />
-    </main>
+    <CardapioClient
+      categories={
+        categories ?? []
+      }
+      products={
+        products ?? []
+      }
+    />
   )
 }

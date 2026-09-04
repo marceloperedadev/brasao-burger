@@ -1,1130 +1,1273 @@
 /* =========================================================
-   BIO HERO — GEEK WIZARDS CAFÉ
-   PREMIUM / ARCANE / REFLEXO MÁGICO
-   PERSONAGEM EMERGINDO DA ESCURIDÃO
-   ========================================================= */
-
-/* =========================================================
-   HERO
+   BRASÃO BURGER
+   HERO — PREMIUM GASTRONÔMICO / EDITORIAL
    ========================================================= */
 
 .heroSection {
+  --gold: #c59a5c;
+  --gold-light: #d9b77a;
+  --gold-dark: #a9793e;
+
+  --bg: #12100d;
+  --bg-deep: #0b0907;
+
+  --cream: #f5eee2;
+  --cream-soft: #eee5d7;
+
+  --text-muted: #d2c7b8;
+  --text-soft: #aaa092;
+
   position: relative;
+  isolation: isolate;
+
   width: 100%;
   min-height: 100svh;
-  display: flex;
-  align-items: center;
-  box-sizing: border-box;
-  padding: 2rem 1.25rem 3rem;
+
+  overflow: hidden;
+
   background:
-    radial-gradient(
-      ellipse 55% 70% at 82% 44%,
-      rgba(92, 57, 125, 0.13),
-      transparent 70%
-    ),
-    radial-gradient(
-      ellipse 40% 50% at 15% 82%,
-      rgba(185, 146, 85, 0.055),
-      transparent 72%
-    ),
     linear-gradient(
-      180deg,
-      #050506 0%,
-      #0b090c 48%,
-      #050506 100%
+      135deg,
+      var(--bg-deep) 0%,
+      var(--bg) 48%,
+      #17120d 100%
     );
+
+  color: var(--cream);
+}
+
+
+/* =========================================================
+   BACKGROUND
+   ========================================================= */
+
+.heroBackground {
+  position: absolute;
+  inset: 0;
+  z-index: -5;
   overflow: hidden;
 }
 
+.backgroundImage {
+  object-fit: cover;
+  object-position: center center;
+
+  transform: scale(1.015);
+
+  filter:
+    brightness(0.52)
+    contrast(1.04)
+    saturate(0.86);
+
+  animation: heroImageReveal 1.4s ease-out both;
+}
+
+
 /* =========================================================
-   LINHA SUPERIOR
+   OVERLAY
+   Mais luminosidade na foto.
+   Escurece apenas onde o texto precisa.
    ========================================================= */
 
-.heroSection::before {
-  content: '';
+.backgroundOverlay {
   position: absolute;
-  top: 0;
-  left: 50%;
-  width: min(220px, 55vw);
-  height: 1px;
-  transform: translateX(-50%);
+  inset: 0;
+  z-index: -4;
+
   background:
     linear-gradient(
       90deg,
-      transparent,
-      #8d6b3f,
-      #c6a866,
-      #8d6b3f,
-      transparent
+      rgba(8, 7, 5, 0.88) 0%,
+      rgba(8, 7, 5, 0.70) 34%,
+      rgba(8, 7, 5, 0.42) 62%,
+      rgba(8, 7, 5, 0.58) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(5, 4, 3, 0.35) 0%,
+      transparent 28%,
+      rgba(5, 4, 3, 0.64) 100%
     );
-  box-shadow:
-    0 0 14px rgba(185, 146, 85, 0.28);
-  padding: 0%;
+
   pointer-events: none;
-  z-index: 6;
 }
 
+
 /* =========================================================
-   GRADE ATMOSFÉRICA
+   TEXTURA
    ========================================================= */
 
-.heroSection::after {
-  content: '';
+.grain {
   position: absolute;
   inset: 0;
-  pointer-events: none;
+  z-index: -2;
+
+  opacity: 0.035;
+
   background-image:
     linear-gradient(
-      rgba(255, 255, 255, 0.012) 1px,
+      rgba(255, 255, 255, 0.5) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      rgba(255, 255, 255, 0.012) 1px,
+      rgba(255, 255, 255, 0.5) 1px,
       transparent 1px
     );
-  background-size: 48px 48px;
-  -webkit-mask-image:
-    linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.5),
-      transparent 82%
-    );
-  mask-image:
-    linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.5),
-      transparent 82%
-    );
-  z-index: 1;
+
+  background-size: 80px 80px;
+
+  pointer-events: none;
 }
 
+
 /* =========================================================
-   PERSONAGEM DE FUNDO
-   REFLEXO / SILHUETA MÁGICA
+   LINHA DOURADA
    ========================================================= */
 
-.characterBackground {
+.goldLine {
   position: absolute;
-  z-index: 0;
-  right: -4%;
-  bottom: -3%;
-  width: min(900px, 100vw);
-  height: min(930px, 97vh);
-  opacity: 0.40;
-  pointer-events: none;
-  filter:
-    brightness(0.70)
-    saturate(0.78)
-    contrast(1.18);
-  -webkit-mask-image:
-    radial-gradient(
-      ellipse 61% 71% at 68% 43%,
-      rgba(0, 0, 0, 0.98) 0%,
-      rgba(0, 0, 0, 0.94) 27%,
-      rgba(0, 0, 0, 0.78) 44%,
-      rgba(0, 0, 0, 0.50) 59%,
-      rgba(0, 0, 0, 0.25) 72%,
-      rgba(0, 0, 0, 0.08) 84%,
-      transparent 100%
-    );
-  mask-image:
-    radial-gradient(
-      ellipse 61% 71% at 68% 43%,
-      rgba(0, 0, 0, 0.98) 0%,
-      rgba(0, 0, 0, 0.94) 27%,
-      rgba(0, 0, 0, 0.78) 44%,
-      rgba(0, 0, 0, 0.50) 59%,
-      rgba(0, 0, 0, 0.25) 72%,
-      rgba(0, 0, 0, 0.08) 84%,
-      transparent 100%
-    );
-}
 
-.characterBackground img {
-  object-fit: contain;
-  object-position: 69% 40%;
-}
+  top: 0;
+  left: 0;
 
-.characterBackground::after {
-  content: '';
-  position: absolute;
-  inset: -5%;
-  pointer-events: none;
+  width: 100%;
+  height: 2px;
+
   background:
-    radial-gradient(
-      ellipse 54% 62% at 68% 43%,
-      rgba(5, 5, 6, 0.00) 0%,
-      rgba(5, 5, 6, 0.04) 28%,
-      rgba(5, 5, 6, 0.15) 46%,
-      rgba(5, 5, 6, 0.38) 62%,
-      rgba(5, 5, 6, 0.68) 78%,
-      rgba(5, 5, 6, 0.92) 91%,
-      #050506 100%
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(197, 154, 92, 0.15) 10%,
+      var(--gold) 50%,
+      rgba(197, 154, 92, 0.15) 90%,
+      transparent 100%
     );
+
+  opacity: 0.8;
 }
+
 
 /* =========================================================
-   REFLEXO OVAL
-   SEM MOLDURA
+   LABEL SUPERIOR
    ========================================================= */
 
-.magicGlow {
+.cornerLabel {
   position: absolute;
-  z-index: 0;
-  right: -4%;
-  bottom: 17%;
-  width: 620px;
-  height: 760px;
-  border-radius: 50%;
-  pointer-events: none;
-  background:
-    radial-gradient(
-      ellipse at center,
-      rgba(139, 92, 246, 0.18) 0%,
-      rgba(139, 92, 246, 0.11) 23%,
-      rgba(139, 92, 246, 0.055) 42%,
-      rgba(139, 92, 246, 0.018) 62%,
-      transparent 78%
-    );
-  filter: blur(35px);
-  opacity: 1;
+
+  top: 34px;
+  right: 42px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+
+  gap: 4px;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 9px;
+  font-weight: 600;
+
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+
+  color: rgba(245, 238, 226, 0.62);
 }
 
-.magicGlow::before {
-  content: '';
-  position: absolute;
-  top: 8%;
-  left: 27%;
-  width: 310px;
-  height: 310px;
-  border-radius: 50%;
-  background:
-    radial-gradient(
-      circle,
-      rgba(195, 151, 226, 0.15) 0%,
-      rgba(168, 85, 247, 0.10) 25%,
-      rgba(168, 85, 247, 0.045) 52%,
-      transparent 74%
-    );
-  filter: blur(28px);
+.cornerLabel span:last-child {
+  color: rgba(197, 154, 92, 0.9);
 }
 
-.magicGlow::after {
-  content: '';
-  position: absolute;
-  top: 13%;
-  left: 40%;
-  width: 190px;
-  height: 250px;
-  border-radius: 50%;
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(224, 201, 239, 0.085) 0%,
-      rgba(168, 85, 247, 0.055) 30%,
-      transparent 72%
-    );
-  filter: blur(24px);
-  transform: rotate(-12deg);
-}
 
 /* =========================================================
-   CONTAINER PRINCIPAL
+   CONTAINER
    ========================================================= */
 
 .heroContainer {
   position: relative;
-  z-index: 2;
-  width: 100%;
-  max-width: 480px;
+
+  display: grid;
+  grid-template-columns:
+    minmax(280px, 0.78fr)
+    minmax(0, 1.22fr);
+
+  align-items: center;
+
+  gap: clamp(3rem, 7vw, 8rem);
+
+  width: min(1380px, calc(100% - 80px));
+  min-height: 100svh;
+
   margin: 0 auto;
+
+  padding:
+    90px
+    0
+    70px;
+}
+
+
+/* =========================================================
+   BRAND AREA
+   ========================================================= */
+
+.brandArea {
   display: flex;
   flex-direction: column;
   align-items: center;
+
   text-align: center;
+
+  animation: fadeUp 0.9s 0.15s ease-out both;
 }
+
+.brandOverline {
+  margin-bottom: 26px;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+
+  color: var(--gold);
+}
+
 
 /* =========================================================
    LOGO
    ========================================================= */
 
-.imageCard {
+.logoComposition {
   position: relative;
-  width: 168px;
-  height: 168px;
-  padding: 5px;
-  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: clamp(230px, 25vw, 350px);
+  aspect-ratio: 1;
+}
+
+.logoInner {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 88%;
+  height: 88%;
+
+  overflow: hidden;
+
   border-radius: 50%;
+
   background:
-    linear-gradient(
-      145deg,
-      #d8bc83,
-      #806038 45%,
-      #d1ad68 70%,
-      #70522d
+    radial-gradient(
+      circle at center,
+      rgba(255, 255, 255, 0.08),
+      rgba(8, 7, 5, 0.72) 72%
     );
+
+  border: 1px solid rgba(197, 154, 92, 0.58);
+
   box-shadow:
-    0 0 0 1px rgba(214, 184, 120, 0.35),
-    0 14px 45px rgba(0, 0, 0, 0.7),
-    0 0 35px rgba(139, 92, 246, 0.10);
-  transition:
-    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.4s ease;
+    0 0 0 8px rgba(197, 154, 92, 0.035),
+    0 18px 60px rgba(0, 0, 0, 0.42);
 }
 
-.imageCard::before {
-  content: '';
+.logoGlow {
   position: absolute;
-  inset: -9px;
+  inset: -20%;
+
   border-radius: 50%;
-  border:
-    1px solid rgba(190, 154, 91, 0.25);
-  transform: rotate(8deg);
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(197, 154, 92, 0.15) 0%,
+      transparent 65%
+    );
+
   pointer-events: none;
 }
 
-.imageCard::after {
-  content: '✦';
-  position: absolute;
-  top: -13px;
-  right: 12px;
-  color: #d6b878;
-  font-size: 0.8rem;
-  text-shadow:
-    0 0 12px rgba(214, 184, 120, 0.7);
-  pointer-events: none;
-}
+.logo {
+  position: relative;
 
-.imageCard:hover {
-  transform:
-    translateY(-5px)
-    scale(1.025);
-  box-shadow:
-    0 0 0 1px rgba(214, 184, 120, 0.5),
-    0 20px 55px rgba(0, 0, 0, 0.8),
-    0 0 40px rgba(139, 92, 246, 0.18);
-}
+  width: 82%;
+  height: 82%;
 
-.imageCard img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+
   border-radius: 50%;
-  border:
-    3px solid #0b090b;
+
+  filter:
+    contrast(1.02)
+    saturate(0.95);
+
+  box-shadow:
+    0 10px 35px rgba(0, 0, 0, 0.35);
 }
+
 
 /* =========================================================
-   INFORMAÇÕES
+   ASSINATURA
    ========================================================= */
 
-.infoWrapper {
-  width: 100%;
-  margin-top: 2rem;
-}
-
-.eyebrow {
-  display: inline-flex;
+.brandSignature {
+  display: flex;
   align-items: center;
-  gap: 0.7rem;
-  margin: 0 0 0.7rem;
-  color: #c7a96b;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
+
+  width: min(330px, 80%);
+
+  margin-top: 28px;
+
+  gap: 13px;
+
+  font-family:
+    Georgia,
+    'Times New Roman',
+    serif;
+
+  font-size: 14px;
+  font-style: italic;
+
+  color: var(--cream);
 }
 
-.eyebrow::before,
-.eyebrow::after {
-  content: '';
-  width: 22px;
+.signatureLine {
+  flex: 1;
+
   height: 1px;
+
   background:
     linear-gradient(
       90deg,
       transparent,
-      #b99255
+      rgba(197, 154, 92, 0.6)
     );
 }
 
-.eyebrow::after {
+.signatureLine:last-child {
   background:
     linear-gradient(
       90deg,
-      #b99255,
+      rgba(197, 154, 92, 0.6),
       transparent
     );
 }
 
-.name {
-  margin: 0;
-  color: #f4eee3;
-  font-size:
-    clamp(
-      2rem,
-      8vw,
-      3rem
-    );
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.045em;
-  text-transform: uppercase;
-  text-shadow:
-    0 2px 20px rgba(0, 0, 0, 0.75);
+.brandTagline {
+  margin: 13px 0 0;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 8px;
+  font-weight: 600;
+
+  letter-spacing: 0.34em;
+
+  color: rgba(245, 238, 226, 0.45);
 }
 
-.role {
-  max-width: 390px;
-  margin: 1rem auto 1.7rem;
-  color: #c1bac2;
-  font-size: 0.9rem;
-  line-height: 1.65;
-  font-weight: 400;
-}
-
-.bioBadgeList {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.45rem;
-  margin-bottom: 1.8rem;
-}
-
-.badge {
-  padding: 0.4rem 0.7rem;
-  border:
-    1px solid rgba(
-      185,
-      146,
-      85,
-      0.25
-    );
-  border-radius: 999px;
-  background:
-    rgba(255, 255, 255, 0.035);
-  color: #d0c8d0;
-  font-size: 0.68rem;
-  font-weight: 500;
-  backdrop-filter: blur(8px);
-  transition:
-    border-color 0.25s ease,
-    background 0.25s ease,
-    transform 0.25s ease;
-}
-
-.badge:hover {
-  border-color:
-    rgba(214, 184, 120, 0.5);
-  background:
-    rgba(185, 146, 85, 0.08);
-  transform:
-    translateY(-2px);
-}
 
 /* =========================================================
-   BOTÕES
+   CONTENT AREA
    ========================================================= */
 
-.actionGroup {
-  width: 100%;
+.contentArea {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+
+  width: 100%;
+  max-width: 760px;
+
+  animation: fadeUp 0.9s 0.3s ease-out both;
 }
 
-.btnPrimary,
-.btnSecondary,
-.btnTertiary {
+
+/* =========================================================
+   EYEBROW
+   ========================================================= */
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+
+  gap: 11px;
+
+  margin: 0 0 18px;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+
+  color: var(--gold-light);
+}
+
+.eyebrowDot {
+  width: 6px;
+  height: 6px;
+
+  flex: 0 0 auto;
+
+  border-radius: 50%;
+
+  background: var(--gold);
+
+  box-shadow:
+    0 0 0 4px rgba(197, 154, 92, 0.09);
+}
+
+
+/* =========================================================
+   HEADLINE
+   ========================================================= */
+
+.headline {
+  max-width: 760px;
+
+  margin: 0;
+
+  font-family:
+    Georgia,
+    'Times New Roman',
+    serif;
+
+  font-size: clamp(3.2rem, 5.2vw, 5.8rem);
+  font-weight: 400;
+
+  line-height: 0.94;
+  letter-spacing: -0.045em;
+
+  color: var(--cream);
+}
+
+.headline em {
+  font-weight: 400;
+  font-style: italic;
+
+  background:
+    linear-gradient(
+      110deg,
+      #b98a4e 0%,
+      #e1c48f 48%,
+      #b98a4e 100%
+    );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  -webkit-text-fill-color: transparent;
+}
+
+
+/* =========================================================
+   DESCRIPTION
+   ========================================================= */
+
+.description {
+  max-width: 570px;
+
+  margin: 27px 0 0;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 15px;
+  font-weight: 400;
+
+  line-height: 1.7;
+
+  color: var(--text-muted);
+}
+
+
+/* =========================================================
+   FEATURE CARD
+   ========================================================= */
+
+.featureCard {
   position: relative;
+
+  margin-top: 36px;
+
+  padding: 22px 24px;
+
+  border: 1px solid rgba(197, 154, 92, 0.25);
+
+  background:
+    linear-gradient(
+      120deg,
+      rgba(24, 21, 17, 0.86),
+      rgba(12, 10, 8, 0.66)
+    );
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  box-shadow:
+    0 14px 45px rgba(0, 0, 0, 0.18);
+
+  transition:
+    border-color 0.3s ease,
+    background 0.3s ease,
+    transform 0.3s ease;
+}
+
+.featureCard:hover {
+  transform: translateY(-2px);
+
+  border-color:
+    rgba(197, 154, 92, 0.48);
+
+  background:
+    linear-gradient(
+      120deg,
+      rgba(29, 25, 20, 0.9),
+      rgba(15, 12, 9, 0.72)
+    );
+}
+
+.featureContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 30px;
+}
+
+.featureText {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+.featureLabel {
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+
+  color: var(--gold);
+}
+
+.featureText strong {
+  max-width: 460px;
+
+  font-family:
+    Georgia,
+    'Times New Roman',
+    serif;
+
+  font-size: 17px;
+  font-weight: 400;
+
+  line-height: 1.3;
+
+  color: var(--cream);
+}
+
+.featureText > span:last-child {
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 12px;
+  line-height: 1.5;
+
+  color: var(--text-soft);
+}
+
+
+/* =========================================================
+   FEATURE ACTION
+   ========================================================= */
+
+.featureAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+
+  flex: 0 0 auto;
+
+  min-width: 145px;
+
+  padding: 13px 15px;
+
+  border: 1px solid rgba(197, 154, 92, 0.42);
+
+  color: var(--cream);
+
+  text-decoration: none;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+
+  background: rgba(197, 154, 92, 0.04);
+
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.featureAction:hover {
+  background: var(--gold);
+
+  border-color: var(--gold);
+
+  color: #120f0b;
+}
+
+.featureActionArrow {
+  font-size: 15px;
+
+  transition:
+    transform 0.3s ease;
+}
+
+.featureAction:hover .featureActionArrow {
+  transform: translate(3px, -3px);
+}
+
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.actions {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  margin-top: 22px;
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+
+  min-height: 48px;
+
+  padding: 0 18px;
+
+  text-decoration: none;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease,
+    transform 0.3s ease;
+}
+
+.primaryAction {
+  min-width: 170px;
+
+  color: #15110b;
+
+  background:
+    linear-gradient(
+      135deg,
+      #d9b77a,
+      #bd8f4e
+    );
+
+  border: 1px solid rgba(217, 183, 122, 0.75);
+}
+
+.primaryAction:hover {
+  transform: translateY(-2px);
+
+  background:
+    linear-gradient(
+      135deg,
+      #e2c58f,
+      #c59a5c
+    );
+}
+
+.actionArrow {
+  margin-left: 28px;
+
+  font-size: 16px;
+
+  transition:
+    transform 0.3s ease;
+}
+
+.primaryAction:hover .actionArrow {
+  transform: translateX(4px);
+}
+
+.secondaryAction {
+  min-width: 150px;
+
+  color: var(--cream);
+
+  background:
+    rgba(255, 255, 255, 0.035);
+
+  border: 1px solid rgba(245, 238, 226, 0.18);
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.secondaryAction:hover {
+  transform: translateY(-2px);
+
+  border-color:
+    rgba(197, 154, 92, 0.5);
+
+  color: var(--gold-light);
+
+  background:
+    rgba(197, 154, 92, 0.07);
+}
+
+.secondaryArrow {
+  margin-left: 20px;
+
+  font-size: 14px;
+
+  transition:
+    transform 0.3s ease;
+}
+
+.secondaryAction:hover .secondaryArrow {
+  transform: translate(2px, -2px);
+}
+
+
+/* =========================================================
+   META AREA
+   ========================================================= */
+
+.metaArea {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.2fr)
+    minmax(200px, 0.8fr);
+
+  gap: 30px;
+
+  margin-top: 32px;
+
+  padding-top: 20px;
+
+  border-top: 1px solid rgba(245, 238, 226, 0.11);
+}
+
+
+/* =========================================================
+   LOCATION
+   ========================================================= */
+
+.location {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+
+  align-items: center;
+
+  gap: 10px;
+
+  color: var(--text-muted);
+
+  text-decoration: none;
+
+  transition:
+    color 0.3s ease;
+}
+
+.location:hover {
+  color: var(--gold-light);
+}
+
+.locationMarker {
+  position: relative;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  min-height: 58px;
-  padding: 0 1.35rem;
-  box-sizing: border-box;
-  text-decoration: none;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.085em;
-  text-transform: uppercase;
-  overflow: hidden;
-  clip-path:
-    polygon(
-      8px 0,
-      calc(100% - 8px) 0,
-      100% 8px,
-      100% calc(100% - 8px),
-      calc(100% - 8px) 100%,
-      8px 100%,
-      0 calc(100% - 8px),
-      0 8px
-    );
-  transition:
-    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.35s ease,
-    border-color 0.35s ease,
-    background 0.35s ease,
-    color 0.35s ease;
+
+  width: 17px;
+  height: 17px;
+
+  border: 1px solid rgba(197, 154, 92, 0.65);
+
+  border-radius: 50%;
 }
 
-.btnPrimary::before,
-.btnSecondary::before,
-.btnTertiary::before {
+.locationMarker::before {
   content: '';
+
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(
-      ellipse at 50% 0%,
-      rgba(168, 85, 247, 0.14),
-      transparent 55%
-    );
-  opacity: 0.7;
+
+  width: 5px;
+  height: 5px;
+
+  border: 1px solid var(--gold);
+
+  border-radius: 50%;
+}
+
+.locationMarker span {
+  display: none;
+}
+
+.locationText {
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.locationArrow {
+  font-size: 13px;
+
+  color: var(--gold);
+
   transition:
-    opacity 0.35s ease,
-    transform 0.5s ease;
+    transform 0.3s ease;
 }
 
-.btnPrimary::after,
-.btnSecondary::after,
-.btnTertiary::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -120%;
-  width: 80%;
-  height: 100%;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      105deg,
-      transparent 20%,
-      rgba(255, 255, 255, 0.07) 50%,
-      transparent 80%
-    );
-  transform: skewX(-18deg);
-  transition:
-    left 0.7s ease;
+.location:hover .locationArrow {
+  transform: translate(2px, -2px);
 }
 
-.btnPrimary {
-  color: #17120c;
-  background:
-    linear-gradient(
-      135deg,
-      #d9bd84 0%,
-      #b99457 50%,
-      #d0ad69 100%
-    );
-  border:
-    1px solid rgba(
-      231,
-      205,
-      151,
-      0.85
-    );
-  box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.45),
-    0 0 18px rgba(139, 92, 246, 0.08);
-}
-
-.btnPrimary:hover {
-  transform:
-    translateY(-3px);
-  box-shadow:
-    0 14px 35px rgba(0, 0, 0, 0.55),
-    0 0 28px rgba(139, 92, 246, 0.16),
-    0 0 8px rgba(214, 184, 120, 0.25);
-  border-color:
-    rgba(236, 214, 166, 1);
-}
-
-.btnPrimary:hover::before {
-  opacity: 1;
-  transform:
-    scale(1.15);
-}
-
-.btnPrimary:hover::after {
-  left: 130%;
-}
-
-.btnSecondary {
-  color: #e0d8e2;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(139, 92, 246, 0.10),
-      rgba(255, 255, 255, 0.035)
-    );
-  border:
-    1px solid rgba(
-      168,
-      85,
-      247,
-      0.30
-    );
-  box-shadow:
-    inset 0 0 25px rgba(139, 92, 246, 0.035),
-    0 6px 20px rgba(0, 0, 0, 0.25);
-}
-
-.btnSecondary:hover {
-  transform:
-    translateY(-3px);
-  color: #f4edfa;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(139, 92, 246, 0.20),
-      rgba(168, 85, 247, 0.06)
-    );
-  border-color:
-    rgba(180, 120, 240, 0.55);
-  box-shadow:
-    inset 0 0 30px rgba(139, 92, 246, 0.08),
-    0 12px 30px rgba(0, 0, 0, 0.45),
-    0 0 24px rgba(139, 92, 246, 0.16);
-}
-
-.btnSecondary:hover::before {
-  opacity: 1;
-  transform:
-    scale(1.15);
-}
-
-.btnSecondary:hover::after {
-  left: 130%;
-}
-
-.btnTertiary {
-  color: #c2bac3;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.035),
-      rgba(139, 92, 246, 0.035)
-    );
-  border:
-    1px solid rgba(
-      255,
-      255,
-      255,
-      0.12
-    );
-  box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.22);
-}
-
-.btnTertiary:hover {
-  transform:
-    translateY(-3px);
-  color: #e0d3e9;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(139, 92, 246, 0.10),
-      rgba(255, 255, 255, 0.025)
-    );
-  border-color:
-    rgba(168, 85, 247, 0.35);
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.4),
-    0 0 20px rgba(139, 92, 246, 0.10);
-}
-
-.btnTertiary:hover::before {
-  opacity: 1;
-  transform:
-    scale(1.15);
-}
-
-.btnTertiary:hover::after {
-  left: 130%;
-}
 
 /* =========================================================
-   LOCALIZAÇÃO
+   HOURS
    ========================================================= */
 
-.locationCard {
-  width: 100%;
-  max-width: 520px;
-  margin-top: 1.4rem;
-  padding: 1rem 1.15rem;
-  box-sizing: border-box;
+.hours {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+
+  gap: 7px;
+}
+
+.hoursLabel {
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 8px;
+  font-weight: 700;
+
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+
+  color: var(--gold);
+}
+
+.hoursList {
+  display: flex;
+  flex-direction: column;
+
+  gap: 2px;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 9px;
+  line-height: 1.45;
+
+  color: var(--text-soft);
+}
+
+
+/* =========================================================
+   SCROLL INDICATOR
+   ========================================================= */
+
+.scrollIndicator {
+  position: absolute;
+
+  left: 42px;
+  bottom: 32px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 11px;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  font-size: 8px;
+  font-weight: 600;
+
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+
+  color: rgba(245, 238, 226, 0.4);
+}
+
+.scrollIndicator i {
+  display: block;
+
+  width: 32px;
+  height: 1px;
+
   background:
     linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.055),
-      rgba(139, 92, 246, 0.045)
+      90deg,
+      rgba(197, 154, 92, 0.8),
+      transparent
     );
-  border:
-    1px solid rgba(
-      214,
-      184,
-      120,
-      0.24
-    );
-  color: #d5ced5;
-  font-size: 0.78rem;
-  line-height: 1.55;
-  text-align: center;
-  box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.25),
-    inset 0 0 20px rgba(139, 92, 246, 0.025);
-  backdrop-filter: blur(10px);
 }
 
-.locationCard strong {
-  display: block;
-  color: #e2c886;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  line-height: 1.3;
-  text-transform: uppercase;
-}
 
 /* =========================================================
-   FOCO
+   ANIMAÇÕES
    ========================================================= */
 
-.btnPrimary:focus-visible,
-.btnSecondary:focus-visible,
-.btnTertiary:focus-visible {
-  outline:
-    2px solid #c7a96b;
-  outline-offset: 4px;
-}
-
-/* =========================================================
-   DESKTOP
-   ========================================================= */
-
-@media (min-width: 900px) {
-  .heroSection {
-    min-height: 100vh;
-    padding: 4rem 3rem;
+@keyframes heroImageReveal {
+  from {
+    opacity: 0;
+    transform: scale(1.05);
   }
 
-  .heroContainer {
-    max-width: 1050px;
-    display: grid;
-    grid-template-columns:
-      330px
-      minmax(0, 1fr);
-    gap: 5rem;
-    align-items: center;
-    text-align: left;
-  }
-
-  .imageCard {
-    width: 290px;
-    height: 290px;
-    margin: 0 auto;
-  }
-
-  .infoWrapper {
-    margin-top: 0;
-  }
-
-  .role {
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  .bioBadgeList {
-    justify-content: flex-start;
-  }
-
-  .actionGroup {
-    max-width: 520px;
-  }
-
-  .locationCard {
-    max-width: 520px;
-    text-align: left;
-  }
-
-  .characterBackground {
-    right: -1%;
-    bottom: -4%;
-    width: 800px;
-    height: 890px;
-    opacity: 0.43;
-    filter:
-      brightness(0.72)
-      saturate(0.80)
-      contrast(1.18);
-    -webkit-mask-image:
-      radial-gradient(
-        ellipse 60% 71% at 68% 42%,
-        rgba(0, 0, 0, 0.98) 0%,
-        rgba(0, 0, 0, 0.94) 27%,
-        rgba(0, 0, 0, 0.78) 44%,
-        rgba(0, 0, 0, 0.50) 59%,
-        rgba(0, 0, 0, 0.25) 72%,
-        rgba(0, 0, 0, 0.08) 85%,
-        transparent 100%
-      );
-    mask-image:
-      radial-gradient(
-        ellipse 60% 71% at 68% 42%,
-        rgba(0, 0, 0, 0.98) 0%,
-        rgba(0, 0, 0, 0.94) 27%,
-        rgba(0, 0, 0, 0.78) 44%,
-        rgba(0, 0, 0, 0.50) 59%,
-        rgba(0, 0, 0, 0.25) 72%,
-        rgba(0, 0, 0, 0.08) 85%,
-        transparent 100%
-      );
-  }
-
-  .characterBackground img {
-    object-position: 70% 40%;
-  }
-
-  .magicGlow {
-    right: -2%;
-    bottom: 15%;
-    width: 650px;
-    height: 780px;
+  to {
+    opacity: 1;
+    transform: scale(1.015);
   }
 }
 
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
 /* =========================================================
-   DESKTOP GRANDE
+   TABLET
    ========================================================= */
 
-@media (min-width: 1200px) {
+@media (max-width: 1050px) {
   .heroContainer {
     grid-template-columns:
-      360px
-      1fr;
-    gap: 6rem;
+      minmax(240px, 0.72fr)
+      minmax(0, 1.28fr);
+
+    gap: 4rem;
+
+    width: min(100% - 56px, 1200px);
   }
 
-  .imageCard {
-    width: 320px;
-    height: 320px;
+  .headline {
+    font-size: clamp(3rem, 5.5vw, 4.8rem);
   }
 
-  .name {
-    font-size: 3.4rem;
+  .featureContent {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
   }
 
-  .role {
-    font-size: 0.95rem;
-  }
-
-  .characterBackground {
-    right: -2%;
-    bottom: -5%;
-    width: 900px;
-    height: 950px;
-    opacity: 0.46;
-    filter:
-      brightness(0.74)
-      saturate(0.82)
-      contrast(1.17);
-    -webkit-mask-image:
-      radial-gradient(
-        ellipse 59% 70% at 68% 41%,
-        rgba(0, 0, 0, 0.98) 0%,
-        rgba(0, 0, 0, 0.94) 26%,
-        rgba(0, 0, 0, 0.78) 43%,
-        rgba(0, 0, 0, 0.49) 58%,
-        rgba(0, 0, 0, 0.23) 72%,
-        rgba(0, 0, 0, 0.07) 85%,
-        transparent 100%
-      );
-    mask-image:
-      radial-gradient(
-        ellipse 59% 70% at 68% 41%,
-        rgba(0, 0, 0, 0.98) 0%,
-        rgba(0, 0, 0, 0.94) 26%,
-        rgba(0, 0, 0, 0.78) 43%,
-        rgba(0, 0, 0, 0.49) 58%,
-        rgba(0, 0, 0, 0.23) 72%,
-        rgba(0, 0, 0, 0.07) 85%,
-        transparent 100%
-      );
-  }
-
-  .characterBackground img {
-    object-position: 71% 39%;
-  }
-
-  .magicGlow {
-    right: -3%;
-    bottom: 13%;
-    width: 720px;
-    height: 820px;
+  .featureAction {
+    width: 100%;
   }
 }
+
 
 /* =========================================================
    MOBILE
    ========================================================= */
 
-@media (max-width: 420px) {
+@media (max-width: 760px) {
   .heroSection {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    min-height: auto;
+
+    padding-bottom: 28px;
   }
 
-  /* LOGO MAIOR */
-  .imageCard {
-    width: 190px;
-    height: 190px;
-  }
+  .backgroundImage {
+    object-position: 58% center;
 
-  .infoWrapper {
-    margin-top: 1.9rem;
-  }
-
-  .name {
-    font-size: 1.9rem;
-  }
-
-  .role {
-    font-size: 0.84rem;
-    margin-top: 0.9rem;
-  }
-
-  .bioBadgeList {
-    gap: 0.35rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .badge {
-    font-size: 0.63rem;
-    padding:
-      0.35rem
-      0.6rem;
-  }
-
-  .btnPrimary,
-  .btnSecondary,
-  .btnTertiary {
-    min-height: 54px;
-    padding:
-      0 1rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.06em;
-  }
-
-  /* -------------------------------------------------------
-     BRILHO AUTOMÁTICO
-     ------------------------------------------------------- */
-
-  .btnPrimary {
-    animation:
-      mobilePrimaryGlow 4s ease-in-out infinite;
-  }
-
-  .btnSecondary {
-    animation:
-      mobileSecondaryGlow 4s ease-in-out infinite;
-    animation-delay: 1.2s;
-  }
-
-  .btnTertiary {
-    animation:
-      mobileTertiaryGlow 4s ease-in-out infinite;
-    animation-delay: 2.4s;
-  }
-
-  .locationCard {
-    margin-top: 1.2rem;
-    padding:
-      0.9rem
-      0.85rem;
-    font-size: 0.7rem;
-    line-height: 1.5;
-  }
-
-  .locationCard strong {
-    font-size: 0.68rem;
-    letter-spacing: 0.11em;
-  }
-
-  .characterBackground {
-    right: -24%;
-    bottom: -1%;
-    width: 135vw;
-    height: 76vh;
-    opacity: 0.28;
     filter:
-      brightness(0.64)
-      saturate(0.74)
-      contrast(1.16);
-    -webkit-mask-image:
-      radial-gradient(
-        ellipse 65% 72% at 71% 41%,
-        rgba(0, 0, 0, 0.96) 0%,
-        rgba(0, 0, 0, 0.82) 35%,
-        rgba(0, 0, 0, 0.46) 60%,
-        rgba(0, 0, 0, 0.14) 80%,
-        rgba(0, 0, 0, 0.03) 91%,
-        transparent 100%
-      );
-    mask-image:
-      radial-gradient(
-        ellipse 65% 72% at 71% 41%,
-        rgba(0, 0, 0, 0.96) 0%,
-        rgba(0, 0, 0, 0.82) 35%,
-        rgba(0, 0, 0, 0.46) 60%,
-        rgba(0, 0, 0, 0.14) 80%,
-        rgba(0, 0, 0, 0.03) 91%,
-        transparent 100%
-      );
+      brightness(0.48)
+      contrast(1.03)
+      saturate(0.82);
   }
 
-  .characterBackground img {
-    object-position: 73% 39%;
-  }
-
-  .characterBackground::after {
+  .backgroundOverlay {
     background:
-      radial-gradient(
-        ellipse 52% 60% at 71% 40%,
-        rgba(5, 5, 6, 0.00) 0%,
-        rgba(5, 5, 6, 0.08) 30%,
-        rgba(5, 5, 6, 0.28) 51%,
-        rgba(5, 5, 6, 0.58) 69%,
-        rgba(5, 5, 6, 0.84) 85%,
-        #050506 100%
+      linear-gradient(
+        180deg,
+        rgba(7, 6, 5, 0.58) 0%,
+        rgba(7, 6, 5, 0.50) 30%,
+        rgba(7, 6, 5, 0.88) 74%,
+        rgba(7, 6, 5, 0.96) 100%
       );
   }
 
-  .magicGlow {
-    right: -38%;
-    bottom: 15%;
-    width: 500px;
-    height: 590px;
-    opacity: 0.82;
-    filter: blur(30px);
+  .cornerLabel {
+    top: 20px;
+    right: 20px;
+
+    font-size: 7px;
+
+    letter-spacing: 0.2em;
   }
 
-  .magicGlow::before {
-    top: 8%;
-    left: 24%;
-    width: 230px;
-    height: 230px;
+  .heroContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+
+    width: calc(100% - 36px);
+
+    min-height: auto;
+
+    padding:
+      88px
+      0
+      35px;
+
+    gap: 42px;
   }
 
-  .magicGlow::after {
-    top: 9%;
-    left: 37%;
-    width: 150px;
-    height: 210px;
+  .brandArea {
+    width: 100%;
+  }
+
+  .brandOverline {
+    margin-bottom: 17px;
+
+    font-size: 8px;
+  }
+
+  .logoComposition {
+    width: min(62vw, 260px);
+  }
+
+  .logoInner {
+    width: 90%;
+    height: 90%;
+  }
+
+  .brandSignature {
+    width: min(280px, 80%);
+
+    margin-top: 20px;
+
+    font-size: 12px;
+  }
+
+  .brandTagline {
+    margin-top: 9px;
+
+    font-size: 7px;
+  }
+
+  .contentArea {
+    max-width: none;
+  }
+
+  .eyebrow {
+    margin-bottom: 14px;
+
+    font-size: 8px;
+
+    letter-spacing: 0.17em;
+  }
+
+  .headline {
+    font-size: clamp(3rem, 13vw, 4.5rem);
+
+    line-height: 0.94;
+
+    letter-spacing: -0.04em;
+  }
+
+  .description {
+    margin-top: 20px;
+
+    font-size: 13px;
+
+    line-height: 1.65;
+  }
+
+  .featureCard {
+    margin-top: 25px;
+
+    padding: 18px;
+  }
+
+  .featureText strong {
+    font-size: 16px;
+  }
+
+  .featureText > span:last-child {
+    font-size: 11px;
+  }
+
+  .actions {
+    flex-direction: column;
+
+    width: 100%;
+
+    margin-top: 16px;
+  }
+
+  .primaryAction,
+  .secondaryAction {
+    width: 100%;
+    min-width: 0;
+
+    min-height: 50px;
+  }
+
+  .metaArea {
+    grid-template-columns: 1fr;
+
+    gap: 18px;
+
+    margin-top: 24px;
+
+    padding-top: 18px;
+  }
+
+  .locationText {
+    font-size: 10px;
+  }
+
+  .hoursList {
+    font-size: 9px;
+  }
+
+  .scrollIndicator {
+    display: none;
   }
 }
+
 
 /* =========================================================
-   CELULARES MUITO ESTREITOS
+   MOBILE PEQUENO
    ========================================================= */
 
-@media (max-width: 360px) {
-  .imageCard {
-    width: 178px;
-    height: 178px;
+@media (max-width: 420px) {
+  .heroContainer {
+    width: calc(100% - 28px);
+
+    padding-top: 82px;
+
+    gap: 34px;
+  }
+
+  .logoComposition {
+    width: 215px;
+  }
+
+  .headline {
+    font-size: clamp(2.7rem, 14vw, 3.6rem);
+  }
+
+  .description {
+    font-size: 12px;
+  }
+
+  .featureCard {
+    padding: 16px;
+  }
+
+  .featureText strong {
+    font-size: 15px;
   }
 }
 
-/* =========================================================
-   BRILHO AUTOMÁTICO — MOBILE
-   ========================================================= */
-
-/* BOTÃO PRINCIPAL — DOURADO */
-
-@keyframes mobilePrimaryGlow {
-  0%,
-  65%,
-  100% {
-    filter: brightness(1);
-    box-shadow:
-      0 8px 25px rgba(0, 0, 0, 0.45),
-      0 0 18px rgba(139, 92, 246, 0.08);
-  }
-
-  82% {
-    filter: brightness(1.10);
-    box-shadow:
-      0 8px 25px rgba(0, 0, 0, 0.45),
-      0 0 24px rgba(214, 184, 120, 0.28),
-      0 0 42px rgba(214, 184, 120, 0.10);
-  }
-}
-
-/* BOTÃO SECUNDÁRIO — ROXO */
-
-@keyframes mobileSecondaryGlow {
-  0%,
-  65%,
-  100% {
-    filter: brightness(1);
-    box-shadow:
-      inset 0 0 25px rgba(139, 92, 246, 0.035),
-      0 6px 20px rgba(0, 0, 0, 0.25);
-  }
-
-  82% {
-    filter: brightness(1.10);
-    box-shadow:
-      inset 0 0 25px rgba(139, 92, 246, 0.055),
-      0 6px 20px rgba(0, 0, 0, 0.25),
-      0 0 25px rgba(139, 92, 246, 0.20),
-      0 0 42px rgba(139, 92, 246, 0.08);
-  }
-}
-
-/* BOTÃO TERCEIRO — ROXO MUITO SUTIL */
-
-@keyframes mobileTertiaryGlow {
-  0%,
-  65%,
-  100% {
-    filter: brightness(1);
-    box-shadow:
-      0 6px 20px rgba(0, 0, 0, 0.22);
-  }
-
-  82% {
-    filter: brightness(1.08);
-    box-shadow:
-      0 6px 20px rgba(0, 0, 0, 0.22),
-      0 0 22px rgba(139, 92, 246, 0.15);
-  }
-}
 
 /* =========================================================
    REDUÇÃO DE MOVIMENTO
    ========================================================= */
 
 @media (prefers-reduced-motion: reduce) {
-  .imageCard,
-  .badge,
-  .btnPrimary,
-  .btnSecondary,
-  .btnTertiary {
-    transition: none;
+  .backgroundImage,
+  .brandArea,
+  .contentArea {
     animation: none;
   }
 
-  .btnPrimary::after,
-  .btnSecondary::after,
-  .btnTertiary::after {
-    display: none;
+  .featureCard,
+  .featureAction,
+  .primaryAction,
+  .secondaryAction,
+  .location,
+  .actionArrow,
+  .secondaryArrow,
+  .featureActionArrow,
+  .locationArrow {
+    transition: none;
   }
 }

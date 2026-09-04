@@ -1,91 +1,132 @@
 /* =========================================================
-   FOOTER — GEEK WIZARDS CAFÉ
-   ARCANE PREMIUM / COMPANION TO BIOHERO
+   FOOTER — BRASÃO BURGER
+
+   EDITORIAL • ARTESANAL • PREMIUM
+   MOBILE FIRST
+   ========================================================= */
+
+
+/* =========================================================
+   ROOT
    ========================================================= */
 
 .footerSection {
+  --gold: #c59a5c;
+  --gold-light: #d9b77a;
+  --gold-dark: #a9793e;
+
+  --bg: #090807;
+  --bg-deep: #070706;
+  --surface: #11100e;
+
+  --cream: #f5eee2;
+  --cream-soft: #f4eee4;
+
+  --text-muted: #cfc4b4;
+  --text-soft: #a99e90;
+
   position: relative;
   width: 100%;
-  padding: 3.5rem 1.25rem 2rem;
+  min-width: 0;
+
   box-sizing: border-box;
+
   overflow: hidden;
+
+  padding:
+    4.5rem
+    1.1rem
+    2rem;
+
+  color: var(--cream);
 
   background:
     radial-gradient(
-      ellipse 58% 75% at 50% 0%,
-      rgba(92, 57, 125, 0.13),
-      transparent 68%
+      ellipse 90% 55% at 50% 0%,
+      rgba(145, 105, 55, 0.14),
+      transparent 70%
     ),
     radial-gradient(
-      ellipse 42% 55% at 18% 100%,
-      rgba(185, 146, 85, 0.045),
+      ellipse 70% 60% at 100% 100%,
+      rgba(105, 55, 25, 0.1),
       transparent 72%
     ),
     linear-gradient(
       180deg,
-      #050506 0%,
-      #0b090c 48%,
-      #050506 100%
+      #090807 0%,
+      #11100e 45%,
+      #070706 100%
     );
 
-  border-top: 1px solid rgba(185, 146, 85, 0.18);
+  border-top:
+    1px solid
+    rgba(197, 154, 92, 0.22);
 }
 
-/* =========================================================
-   GRADE ATMOSFÉRICA
-   MESMA LINGUAGEM DO BIOHERO
-   ========================================================= */
-
-.footerSection::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-
-  pointer-events: none;
-
-  background-image:
-    linear-gradient(
-      rgba(255, 255, 255, 0.011) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.011) 1px,
-      transparent 1px
-    );
-
-  background-size: 48px 48px;
-
-  -webkit-mask-image:
-    linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.48),
-      transparent 82%
-    );
-
-  mask-image:
-    linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.48),
-      transparent 82%
-    );
-
-  z-index: 0;
-}
 
 /* =========================================================
-   LINHA SUPERIOR
-   MESMO DOURADO DO BIOHERO
+   TEXTURA EDITORIAL
    ========================================================= */
 
 .footerSection::before {
   content: '';
 
   position: absolute;
+  inset: 0;
+
+  z-index: 0;
+
+  pointer-events: none;
+
+  opacity: 0.17;
+
+  background-image:
+    linear-gradient(
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.014) 1px,
+      transparent 1px
+    );
+
+  background-size: 42px 42px;
+
+  mask-image:
+    linear-gradient(
+      to bottom,
+      black,
+      transparent 92%
+    );
+
+  -webkit-mask-image:
+    linear-gradient(
+      to bottom,
+      black,
+      transparent 92%
+    );
+}
+
+
+/* =========================================================
+   LINHA SUPERIOR
+   ========================================================= */
+
+.footerSection::after {
+  content: '';
+
+  position: absolute;
+
   top: 0;
   left: 50%;
 
-  width: min(220px, 55vw);
+  width:
+    min(
+      1320px,
+      calc(100% - 32px)
+    );
+
   height: 1px;
 
   transform: translateX(-50%);
@@ -93,22 +134,19 @@
   background:
     linear-gradient(
       90deg,
-      transparent,
-      #8d6b3f,
-      #c6a866,
-      #8d6b3f,
-      transparent
+      transparent 0%,
+      rgba(197, 154, 92, 0.42) 25%,
+      rgba(217, 183, 122, 0.62) 50%,
+      rgba(197, 154, 92, 0.42) 75%,
+      transparent 100%
     );
 
-  box-shadow:
-    0 0 14px rgba(185, 146, 85, 0.28);
-
   pointer-events: none;
-  z-index: 4;
 }
 
+
 /* =========================================================
-   BRILHO ARCANO SUPERIOR
+   BRILHO AMBIENTE
    ========================================================= */
 
 .footerMagic {
@@ -117,8 +155,8 @@
   top: -180px;
   left: 50%;
 
-  width: 560px;
-  height: 320px;
+  width: 620px;
+  height: 380px;
 
   transform: translateX(-50%);
 
@@ -127,17 +165,18 @@
   background:
     radial-gradient(
       ellipse at center,
-      rgba(139, 92, 246, 0.13) 0%,
-      rgba(139, 92, 246, 0.055) 34%,
-      rgba(139, 92, 246, 0.018) 55%,
-      transparent 76%
+      rgba(191, 142, 73, 0.16),
+      rgba(191, 142, 73, 0.04) 38%,
+      transparent 72%
     );
 
-  filter: blur(30px);
+  filter: blur(35px);
 
   pointer-events: none;
+
   z-index: 1;
 }
+
 
 /* =========================================================
    CONTAINER
@@ -145,333 +184,427 @@
 
 .footerContainer {
   position: relative;
+
   z-index: 3;
 
   width: 100%;
-  max-width: 520px;
+  max-width: 620px;
+
+  min-width: 0;
 
   margin: 0 auto;
 
   display: flex;
   flex-direction: column;
+
   align-items: center;
 
   text-align: center;
 }
 
+
 /* =========================================================
-   REDES SOCIAIS
+   BRAND HEADER
+   ========================================================= */
+
+.brandHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  margin-bottom: 1.8rem;
+}
+
+
+/* =========================================================
+   OVERLINE
+   ========================================================= */
+
+.brandOverline {
+  margin-bottom: 0.45rem;
+
+  color: var(--gold);
+
+  font-size: 0.58rem;
+  font-weight: 800;
+
+  letter-spacing: 0.25em;
+
+  line-height: 1.4;
+
+  text-transform: uppercase;
+}
+
+
+/* =========================================================
+   BRAND NAME
+   ========================================================= */
+
+.brandName {
+  margin: 0;
+
+  color: var(--cream);
+
+  font-family:
+    Georgia,
+    'Times New Roman',
+    serif;
+
+  font-size:
+    clamp(
+      1.9rem,
+      7vw,
+      2.6rem
+    );
+
+  font-weight: 800;
+
+  line-height: 1;
+
+  letter-spacing: -0.045em;
+
+  text-rendering: optimizeLegibility;
+}
+
+
+/* =========================================================
+   TAGLINE
+   ========================================================= */
+
+.brandTagline {
+  margin:
+    0.75rem
+    0
+    0;
+
+  color: var(--text-soft);
+
+  font-family:
+    Georgia,
+    'Times New Roman',
+    serif;
+
+  font-size: 0.82rem;
+
+  font-style: italic;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   SOCIAL GROUP
    ========================================================= */
 
 .socialGroup {
   display: flex;
+
   align-items: center;
   justify-content: center;
 
   gap: 0.7rem;
 
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
+
+
+/* =========================================================
+   SOCIAL LINK
+   ========================================================= */
 
 .socialLink {
   position: relative;
 
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
 
   display: flex;
+
   align-items: center;
   justify-content: center;
 
-  color: #c7a96b;
+  flex-shrink: 0;
+
+  color: var(--text-muted);
 
   background:
-    linear-gradient(
-      145deg,
-      rgba(139, 92, 246, 0.095),
-      rgba(255, 255, 255, 0.025)
-    );
+    rgba(255, 255, 255, 0.025);
 
-  border: 1px solid rgba(185, 146, 85, 0.24);
+  border:
+    1px solid
+    rgba(197, 154, 92, 0.3);
 
-  clip-path:
-    polygon(
-      7px 0,
-      calc(100% - 7px) 0,
-      100% 7px,
-      100% calc(100% - 7px),
-      calc(100% - 7px) 100%,
-      7px 100%,
-      0 calc(100% - 7px),
-      0 7px
-    );
+  border-radius: 50%;
 
   box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.32),
-    inset 0 0 18px rgba(139, 92, 246, 0.025);
+    0 12px 28px
+    rgba(0, 0, 0, 0.4),
+    0 0 20px
+    rgba(170, 117, 53, 0.05);
 
   text-decoration: none;
 
   transition:
-    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-    color 0.35s ease,
-    background 0.35s ease,
-    border-color 0.35s ease,
-    box-shadow 0.35s ease;
-
-  animation:
-    footerSocialGlow 5.5s ease-in-out infinite;
+    transform 0.3s ease,
+    border-color 0.3s ease,
+    background 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease;
 }
+
 
 /* =========================================================
-   BRILHO INTERNO
+   SVG
    ========================================================= */
 
-.socialLink::before {
-  content: '';
+.socialLink svg {
+  width: 19px;
+  height: 19px;
 
-  position: absolute;
-  inset: 1px;
+  fill: currentColor;
 
-  background:
-    radial-gradient(
-      circle at 50% 42%,
-      rgba(168, 85, 247, 0.13),
-      transparent 68%
-    );
-
-  opacity: 0.7;
-
-  pointer-events: none;
+  transition:
+    transform 0.3s ease;
 }
 
-/* =========================================================
-   REFLEXO MÁGICO
-   ========================================================= */
-
-.socialLink::after {
-  content: '';
-
-  position: absolute;
-
-  top: -45%;
-  left: -120%;
-
-  width: 55%;
-  height: 190%;
-
-  transform: rotate(20deg);
-
-  background:
-    linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.10),
-      transparent
-    );
-
-  opacity: 0;
-
-  pointer-events: none;
-}
 
 /* =========================================================
    HOVER
    ========================================================= */
 
-.socialLink:hover {
-  color: #17120c;
+@media (hover: hover) and (pointer: fine) {
+  .socialLink:hover {
+    color: #17110a;
 
-  background:
-    linear-gradient(
-      135deg,
-      #d9bd84 0%,
-      #b99457 52%,
-      #d0ad69 100%
-    );
+    background:
+      linear-gradient(
+        135deg,
+        var(--gold-light),
+        var(--gold-dark)
+      );
 
-  border-color: rgba(231, 205, 151, 0.9);
+    border-color:
+      rgba(236, 207, 157, 0.8);
 
-  transform:
-    translateY(-4px)
-    scale(1.04);
+    transform:
+      translateY(-3px);
 
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.5),
-    0 0 24px rgba(214, 184, 120, 0.22);
+    box-shadow:
+      0 16px 32px
+      rgba(0, 0, 0, 0.45),
+      0 0 22px
+      rgba(197, 154, 92, 0.25);
+  }
 
-  animation-play-state: paused;
+  .socialLink:hover svg {
+    transform: scale(1.08);
+  }
 }
 
-.socialLink:hover::before {
-  opacity: 1;
-}
 
-.socialLink:hover::after {
-  left: 135%;
-  opacity: 1;
-
-  transition:
-    left 0.7s ease,
-    opacity 0.2s ease;
-}
+/* =========================================================
+   ACTIVE
+   ========================================================= */
 
 .socialLink:active {
-  transform:
-    translateY(-1px)
-    scale(1);
+  transform: scale(0.96);
 }
+
 
 /* =========================================================
-   ÍCONES
+   META AREA
    ========================================================= */
 
-.socialLink svg {
-  position: relative;
-  z-index: 2;
-
-  width: 19px;
-  height: 19px;
-
-  display: block;
-
-  fill: currentColor;
-}
-
-/* =========================================================
-   ANIMAÇÃO ARCANA
-   ========================================================= */
-
-@keyframes footerSocialGlow {
-  0%,
-  65%,
-  100% {
-    filter: brightness(1);
-
-    box-shadow:
-      0 8px 25px rgba(0, 0, 0, 0.32),
-      inset 0 0 18px rgba(139, 92, 246, 0.025),
-      0 0 8px rgba(185, 146, 85, 0.025);
-  }
-
-  80% {
-    filter: brightness(1.07);
-
-    box-shadow:
-      0 8px 25px rgba(0, 0, 0, 0.32),
-      inset 0 0 22px rgba(139, 92, 246, 0.045),
-      0 0 18px rgba(139, 92, 246, 0.14),
-      0 0 32px rgba(139, 92, 246, 0.055);
-  }
-}
-
-/* =========================================================
-   ONDA DE BRILHO
-   ========================================================= */
-
-.socialLink:nth-child(2) {
-  animation-delay: 1.8s;
-}
-
-.socialLink:nth-child(3) {
-  animation-delay: 3.6s;
-}
-
-/* =========================================================
-   LOCALIZAÇÃO
-   ========================================================= */
-
-.locationText {
-  position: relative;
+.metaArea {
+  width: 100%;
 
   display: flex;
+  flex-direction: column;
+
+  align-items: center;
+
+  gap: 0.9rem;
+
+  padding-top: 1.45rem;
+
+  border-top:
+    1px solid
+    rgba(197, 154, 92, 0.15);
+}
+
+
+/* =========================================================
+   LOCATION
+   ========================================================= */
+
+.location {
+  display: inline-flex;
+
   align-items: center;
   justify-content: center;
 
-  gap: 0.6rem;
+  gap: 0.5rem;
 
-  max-width: 520px;
+  max-width: 100%;
 
-  margin: 0;
+  color: var(--gold);
 
-  color: #c1bac2;
+  font-size: 0.68rem;
 
-  font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: 700;
 
-  line-height: 1.6;
+  line-height: 1.45;
 
-  letter-spacing: 0.065em;
+  letter-spacing: 0.045em;
+
+  text-decoration: none;
 
   text-transform: uppercase;
+
+  transition:
+    color 0.3s ease;
 }
 
-.locationText::before {
-  content: '✦';
+
+/* =========================================================
+   LOCATION TEXT
+   ========================================================= */
+
+.locationText {
+  min-width: 0;
+}
+
+
+/* =========================================================
+   LOCATION DOT
+   ========================================================= */
+
+.locationDot {
+  width: 6px;
+  height: 6px;
 
   flex-shrink: 0;
 
-  color: #c7a96b;
+  background-color:
+    var(--gold);
 
-  font-size: 0.72rem;
+  border-radius: 50%;
 
-  text-shadow:
-    0 0 10px rgba(214, 184, 120, 0.55);
+  box-shadow:
+    0 0 8px
+    rgba(197, 154, 92, 0.6);
 }
 
+
 /* =========================================================
-   DIVISOR DISCRETO
+   LOCATION ARROW
    ========================================================= */
 
-.locationText::after {
-  content: '';
+.locationArrow {
+  flex-shrink: 0;
 
-  position: absolute;
+  color: var(--gold);
 
-  bottom: -0.75rem;
-  left: 50%;
+  font-size: 0.8rem;
 
-  width: 44px;
+  transition:
+    transform 0.3s ease;
+}
+
+
+/* =========================================================
+   LOCATION HOVER
+   ========================================================= */
+
+@media (hover: hover) and (pointer: fine) {
+  .location:hover {
+    color: var(--cream);
+  }
+
+  .location:hover .locationArrow {
+    transform:
+      translate(2px, -2px);
+  }
+}
+
+
+/* =========================================================
+   DECORATIVE FOOTER LINE
+   ========================================================= */
+
+.footerLine {
+  width:
+    min(
+      180px,
+      60%
+    );
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 0.5rem;
+
+  margin-top: 0.2rem;
+}
+
+
+.footerLine span {
+  display: block;
+
+  width: 4px;
+  height: 4px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(197, 154, 92, 0.38);
+}
+
+
+.footerLine span:first-child,
+.footerLine span:last-child {
+  width: 22px;
   height: 1px;
 
-  transform: translateX(-50%);
+  border-radius: 0;
 
   background:
     linear-gradient(
       90deg,
       transparent,
-      rgba(185, 146, 85, 0.38),
-      transparent
+      rgba(197, 154, 92, 0.28)
     );
 }
+
+
+.footerLine span:last-child {
+  transform:
+    rotate(180deg);
+}
+
 
 /* =========================================================
    COPYRIGHT
    ========================================================= */
 
 .copyright {
-  margin: 1.7rem 0 0;
+  max-width: 100%;
 
-  color: #817982;
+  margin: 0;
 
-  font-size: 0.65rem;
+  color: var(--text-soft);
+
+  font-size: 0.62rem;
+
   font-weight: 400;
 
   line-height: 1.5;
 
-  letter-spacing: 0.045em;
+  letter-spacing: 0.025em;
 }
 
-/* =========================================================
-   FOCO
-   ========================================================= */
-
-.socialLink:focus-visible {
-  outline:
-    2px solid #c7a96b;
-
-  outline-offset: 4px;
-}
 
 /* =========================================================
    TABLET
@@ -480,29 +613,36 @@
 @media (min-width: 640px) {
   .footerSection {
     padding:
-      3.75rem
+      5rem
       2rem
-      2.25rem;
+      2.75rem;
   }
 
-  .socialGroup {
-    gap: 0.8rem;
+  .footerContainer {
+    max-width: 700px;
   }
 
-  .socialLink {
-    width: 48px;
-    height: 48px;
+  .brandHeader {
+    margin-bottom: 2rem;
   }
 
-  .socialLink svg {
-    width: 20px;
-    height: 20px;
+  .brandName {
+    font-size: 2.35rem;
   }
 
-  .locationText {
-    font-size: 0.74rem;
+  .brandTagline {
+    font-size: 0.88rem;
+  }
+
+  .location {
+    font-size: 0.72rem;
+  }
+
+  .copyright {
+    font-size: 0.66rem;
   }
 }
+
 
 /* =========================================================
    DESKTOP
@@ -511,126 +651,158 @@
 @media (min-width: 900px) {
   .footerSection {
     padding:
-      4rem
+      5.5rem
       3rem
-      2.5rem;
+      3.25rem;
   }
 
   .footerContainer {
-    max-width: 920px;
+    max-width: 980px;
+  }
+
+  .brandName {
+    font-size: 2.7rem;
   }
 
   .socialGroup {
-    gap: 0.9rem;
+    margin-bottom: 2.2rem;
   }
 
-  .locationText {
-    font-size: 0.76rem;
+  .socialLink {
+    width: 50px;
+    height: 50px;
   }
 
-  .copyright {
-    font-size: 0.67rem;
+  .metaArea {
+    padding-top: 1.6rem;
+  }
+
+  .location {
+    font-size: 0.74rem;
   }
 }
 
+
 /* =========================================================
-   DESKTOP GRANDE
+   LARGE DESKTOP
    ========================================================= */
 
 @media (min-width: 1200px) {
   .footerSection {
-    padding-top: 4.5rem;
+    padding-top: 6rem;
   }
 
-  .footerMagic {
-    width: 680px;
-    height: 340px;
+  .footerContainer {
+    max-width: 1080px;
+  }
+
+  .brandName {
+    font-size: 2.85rem;
+  }
+
+  .brandTagline {
+    font-size: 0.9rem;
+  }
+
+  .socialGroup {
+    gap: 0.8rem;
   }
 }
+
 
 /* =========================================================
    MOBILE
    ========================================================= */
 
-@media (max-width: 420px) {
+@media (max-width: 639px) {
   .footerSection {
-    padding:
-      3.25rem
-      1rem
-      1.8rem;
-  }
-
-  .socialGroup {
-    gap: 0.7rem;
-    margin-bottom: 1.4rem;
-  }
-
-  .socialLink {
-    width: 44px;
-    height: 44px;
-  }
-
-  .socialLink svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .locationText {
-    max-width: 340px;
-
-    font-size: 0.65rem;
-
-    line-height: 1.65;
-
-    letter-spacing: 0.045em;
-  }
-
-  .copyright {
-    margin-top: 1.65rem;
-    font-size: 0.61rem;
+    padding-bottom:
+      calc(
+        2rem +
+        env(safe-area-inset-bottom)
+      );
   }
 
   .footerMagic {
-    width: 460px;
-    height: 280px;
+    width: 430px;
+    height: 300px;
+
+    top: -150px;
+  }
+
+  .location {
+    width: 100%;
+
+    padding:
+      0
+      0.25rem;
   }
 }
 
+
 /* =========================================================
-   CELULARES MUITO PEQUENOS
+   VERY SMALL DEVICES
    ========================================================= */
 
-@media (max-width: 360px) {
-  .socialLink {
-    width: 42px;
-    height: 42px;
+@media (max-width: 380px) {
+  .footerSection {
+    padding-top: 3.75rem;
   }
 
-  .locationText {
-    font-size: 0.62rem;
+  .brandName {
+    font-size: 1.75rem;
+  }
+
+  .brandTagline {
+    font-size: 0.76rem;
+  }
+
+  .socialLink {
+    width: 46px;
+    height: 46px;
+  }
+
+  .location {
+    font-size: 0.6rem;
   }
 
   .copyright {
-    font-size: 0.59rem;
+    font-size: 0.58rem;
   }
 }
 
+
 /* =========================================================
-   REDUÇÃO DE MOVIMENTO
+   ACCESSIBILITY
+   ========================================================= */
+
+.socialLink:focus-visible,
+.location:focus-visible {
+  outline:
+    2px solid
+    var(--gold-light);
+
+  outline-offset: 4px;
+}
+
+
+/* =========================================================
+   REDUCED MOTION
    ========================================================= */
 
 @media (prefers-reduced-motion: reduce) {
-  .socialLink {
-    animation: none;
-    transition: none;
+  .socialLink,
+  .socialLink svg,
+  .location,
+  .locationArrow {
+    transition: none !important;
   }
 
-  .socialLink:hover,
-  .socialLink:active {
-    transform: none;
+  .socialLink:hover {
+    transform: none !important;
   }
 
-  .socialLink:hover::after {
-    display: none;
+  .location:hover .locationArrow {
+    transform: none !important;
   }
 }

@@ -1,134 +1,283 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import styles from './BioHero.module.css'
+import { SITE_CONFIG } from '@/app/config/site'
+
+const DATA = {
+  name: 'Brasão Burger',
+  category: 'Hambúrguer • Parrilla • Bar',
+  headline: 'Sabor que merece seu nome.',
+  description:
+    'O verdadeiro hambúrguer na parrilla em Taubaté. Ingredientes selecionados, molhos artesanais, porções rústicas e chope trincando.',
+  address:
+    'Praça Santa Teresinha, 42 — Centro, Taubaté, SP',
+
+  hours: {
+    monday: 'Seg · Fechado',
+    weekday: 'Ter — Qui · 18h às 23h',
+    friday: 'Sex — Sáb · 18h às 23h30',
+    sunday: 'Dom · 18h às 23h',
+  },
+
+  links: {
+    menu: '/cardapio',
+    order: SITE_CONFIG.whatsapp.menu,
+
+    reservation:
+      'https://wa.me/5512991234567?text=Ol%C3%A1%2C%20gostaria%20de%20reservar%20uma%20mesa%20no%20Bras%C3%A3o%20Burger.',
+
+    location:
+      'https://www.google.com/maps/search/?api=1&query=Pra%C3%A7a+Santa+Teresinha%2C+42%2C+Centro%2C+Taubat%C3%A9%2C+SP',
+  },
+}
 
 export function BioHero() {
-  const DATA = {
-    name: 'Geek Wizards & Café',
-    category: 'Cafeteria Temática & Loja Geek',
-    description:
-      'Seu mundo mágico é aqui. Cafés temáticos, jogos, RPG e cultura geek em um só lugar.',
-    badges: [
-      'Cafés & Doces',
-      'Jogos de Tabuleiro',
-      'Mesas de RPG',
-      'Artigos Geek',
-    ],
-    address:
-      'Rua Silva Jardim, 97 — Jardim das Nações, Taubaté - SP',
-    links: {
-      rpgGroup:
-        'https://chat.whatsapp.com/L0BD7avJT6jAnv7oQtST4K',
-      facebook:
-        'https://www.facebook.com/geekwizardscafe',
-      locationMaps:
-        'https://maps.google.com/?q=Rua+Silva+Jardim+97+Jardim+das+Nacoes+Taubate',
-    },
-  }
-
   return (
-    <section className={styles.heroSection}>
-      {/* PERSONAGEM — ATMOSFERA DE FUNDO */}
-      <div className={styles.characterBackground}>
+    <section
+      className={styles.heroSection}
+      aria-labelledby="brasao-hero-title"
+    >
+      {/* FOTO DE FUNDO */}
+      <div className={styles.heroBackground} aria-hidden="true">
         <Image
-          src="/images/geek-wizards-personagem.png"
+          src="/images/brasao-fachada.jpg"
           alt=""
           fill
           priority
-          sizes="(max-width: 899px) 90vw, 650px"
+          quality={90}
+          sizes="100vw"
+          className={styles.backgroundImage}
         />
       </div>
 
-      {/* BRILHO AMBIENTE */}
-      <div
-        className={styles.magicGlow}
-        aria-hidden="true"
-      />
+      <div className={styles.backgroundOverlay} aria-hidden="true" />
 
-      {/* CONTEÚDO PRINCIPAL */}
+      {/* TEXTURA MUITO SUTIL */}
+      <div className={styles.grain} aria-hidden="true" />
+
+      {/* DETALHE DOURADO */}
+      <div className={styles.goldLine} aria-hidden="true" />
+
+      {/* IDENTIFICAÇÃO DISCRETA */}
+      <div className={styles.cornerLabel} aria-hidden="true">
+        <span>BRASÃO</span>
+        <span>TAUBATÉ · SP</span>
+      </div>
+
       <div className={styles.heroContainer}>
-        {/* LOGO */}
-        <div className={styles.imageCard}>
-          <Image
-            src="/images/geek-wizard.jpg" /* Certifique-se de usar o nome exato da imagem em public/images */
-            alt="Geek Wizards & Café"
-            width={320}
-            height={320}
-            priority
-            quality={95}
-          />
+
+        {/* =====================================================
+            ÁREA DA MARCA
+            ===================================================== */}
+        <div className={styles.brandArea}>
+
+          <span className={styles.brandOverline}>
+            Est. Taubaté
+          </span>
+
+          <div className={styles.logoComposition}>
+
+            <div className={styles.logoInner}>
+              <div className={styles.logoGlow} aria-hidden="true" />
+
+              <Image
+                src="/images/brasao-logo.jpg"
+                alt={DATA.name}
+                width={420}
+                height={420}
+                priority
+                quality={95}
+                className={styles.logo}
+              />
+            </div>
+
+          </div>
+
+          <div className={styles.brandSignature}>
+            <span className={styles.signatureLine} />
+            <span>Brasão Burger</span>
+            <span className={styles.signatureLine} />
+          </div>
+
+          <p className={styles.brandTagline}>
+            BURGER · PARRILLA · BAR
+          </p>
+
         </div>
 
-        {/* INFORMAÇÕES */}
-        <div className={styles.infoWrapper}>
-          <p className={styles.eyebrow}>
-            {DATA.category}
-          </p>
+        {/* =====================================================
+            CONTEÚDO PRINCIPAL
+            ===================================================== */}
+        <div className={styles.contentArea}>
 
-          <h1 className={styles.name}>
-            {DATA.name}
-          </h1>
+          <div className={styles.heroContent}>
 
-          <p className={styles.role}>
-            {DATA.description}
-          </p>
+            <p className={styles.eyebrow}>
+              <span className={styles.eyebrowDot} aria-hidden="true" />
+              {DATA.category}
+            </p>
 
-          {/* DIFERENCIAIS */}
-          <div
-            className={styles.bioBadgeList}
-            aria-label="Experiências da Geek Wizards Café"
-          >
-            {DATA.badges.map((badge) => (
-              <span
-                key={badge}
-                className={styles.badge}
+            <h1
+              id="brasao-hero-title"
+              className={styles.headline}
+            >
+              Sabor que
+              <br />
+              <em>merece</em> seu nome.
+            </h1>
+
+            <p className={styles.description}>
+              {DATA.description}
+            </p>
+
+          </div>
+
+          {/* =================================================
+              CARDÁPIO — DESTAQUE
+              ================================================= */}
+          <div className={styles.featureCard}>
+
+            <div className={styles.featureContent}>
+
+              <div className={styles.featureText}>
+                <span className={styles.featureLabel}>
+                  Experiência Brasão
+                </span>
+
+                <strong>
+                  Parrilla, ingredientes selecionados
+                  e sabor de verdade.
+                </strong>
+
+                <span>
+                  Burgers artesanais, porções e bebidas
+                  preparadas para uma experiência completa.
+                </span>
+              </div>
+
+              <Link
+                href={DATA.links.menu}
+                className={styles.featureAction}
+                aria-label="Ver cardápio do Brasão Burger"
+                prefetch
               >
-                {badge}
+                <span>Ver cardápio</span>
+
+                <span
+                  className={styles.featureActionArrow}
+                  aria-hidden="true"
+                >
+                  ↗
+                </span>
+              </Link>
+
+            </div>
+
+          </div>
+
+          {/* =================================================
+              AÇÕES
+              ================================================= */}
+          <div className={styles.actions}>
+
+            <a
+              href={DATA.links.order}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.primaryAction}
+              aria-label="Fazer pedido pelo WhatsApp"
+            >
+              <span>Fazer pedido</span>
+
+              <span
+                className={styles.actionArrow}
+                aria-hidden="true"
+              >
+                →
               </span>
-            ))}
-          </div>
-
-          {/* AÇÕES */}
-          <div className={styles.actionGroup}>
-            <a
-              href={DATA.links.rpgGroup}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.btnPrimary}
-              aria-label="Entrar no grupo de RPG da Geek Wizards no WhatsApp"
-            >
-              Grupo de RPG no WhatsApp
             </a>
 
             <a
-              href={DATA.links.facebook}
+              href={DATA.links.reservation}
               target="_blank"
               rel="noopener noreferrer"
-              className={styles.btnSecondary}
-              aria-label="Acessar o Facebook oficial da Geek Wizards Café"
+              className={styles.secondaryAction}
+              aria-label="Reservar mesa no Brasão Burger pelo WhatsApp"
             >
-              Facebook Oficial
+              <span>Reservar mesa</span>
+
+              <span
+                className={styles.secondaryArrow}
+                aria-hidden="true"
+              >
+                ↗
+              </span>
             </a>
+
+          </div>
+
+          {/* =================================================
+              INFORMAÇÕES
+              ================================================= */}
+          <div className={styles.metaArea}>
 
             <a
-              href={DATA.links.locationMaps}
+              href={DATA.links.location}
               target="_blank"
               rel="noopener noreferrer"
-              className={styles.btnTertiary}
-              aria-label="Abrir localização da Geek Wizards Café no Google Maps"
+              className={styles.location}
+              aria-label="Ver localização do Brasão Burger no Google Maps"
             >
-              Como Chegar
+              <span
+                className={styles.locationMarker}
+                aria-hidden="true"
+              >
+                <span />
+              </span>
+
+              <span className={styles.locationText}>
+                {DATA.address}
+              </span>
+
+              <span
+                className={styles.locationArrow}
+                aria-hidden="true"
+              >
+                ↗
+              </span>
             </a>
+
+            <div className={styles.hours}>
+
+              <span className={styles.hoursLabel}>
+                Horários
+              </span>
+
+              <div className={styles.hoursList}>
+                <span>{DATA.hours.monday}</span>
+                <span>{DATA.hours.weekday}</span>
+                <span>{DATA.hours.friday}</span>
+                <span>{DATA.hours.sunday}</span>
+              </div>
+
+            </div>
+
           </div>
 
-          {/* ENDEREÇO */}
-          <div className={styles.locationCard}>
-            <strong>Ponto de Encontro</strong>
-            {DATA.address}
-          </div>
         </div>
       </div>
+
+      {/* INDICADOR DISCRETO */}
+      <div
+        className={styles.scrollIndicator}
+        aria-hidden="true"
+      >
+        <span>Explore</span>
+        <i />
+      </div>
+
     </section>
   )
 }
