@@ -8,7 +8,6 @@ import {
 } from 'react'
 
 import { useSearchParams } from 'next/navigation'
-
 import { SITE_CONFIG } from '@/app/config/site'
 import styles from './Cardapio.module.css'
 
@@ -37,6 +36,17 @@ type CartItem = {
 }
 
 type Customer = {
+  id: number
+  name: string
+  phone: string
+  address: string
+  number: string
+  complement: string | null
+  neighborhood: string
+  reference: string | null
+}
+
+type CustomerForm = {
   name: string
   phone: string
   address: string
@@ -45,8 +55,6 @@ type Customer = {
   neighborhood: string
   reference: string
 }
-
-type CustomerForm = Customer
 
 type DeliveryMethod =
   | 'delivery'
@@ -59,7 +67,9 @@ type PaymentMethod =
 
 type CheckoutStep =
   | 'cart'
+  | 'phone'
   | 'customer'
+  | 'delivery'
   | 'payment'
   | 'confirmed'
 
@@ -68,88 +78,32 @@ type Props = {
   products: Product[]
 }
 
-const EMPTY_CUSTOMER: CustomerForm = {
-  name: '',
-  phone: '',
-  address: '',
-  number: '',
-  complement: '',
-  neighborhood: '',
-  reference: '',
-}
 
-function formatPrice(value: number) {
-  return value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  })
-}
-
-function formatPhone(value: string) {
-  const digits = value
-    .replace(/\D/g, '')
-    .slice(0, 11)
-
-  if (digits.length <= 2) {
-    return digits
-  }
-
-  if (digits.length <= 7) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
-  }
-
-  return `(${digits.slice(0, 2)}) ${digits.slice(
-    2,
-    7
-  )}-${digits.slice(7)}`
-}
-
-function normalizePhone(phone: string) {
-  return phone.replace(/\D/g, '')
-}
-
-function formatChange(value: string) {
-  const digits = value
-    .replace(/\D/g, '')
-    .slice(0, 7)
-
-  if (!digits) {
-    return ''
-  }
-
-  const numericValue = Number(digits)
-
-  return numericValue.toLocaleString(
-    'pt-BR',
-    {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }
-  )
-}
-
-function parseChange(value: string) {
-  if (!value.trim()) {
-    return 0
-  }
-
-  return Number(
-    value
-      .replace(/\./g, '')
-      .replace(',', '.')
-  )
-}
 
 export default function CardapioClient({
   categories,
   products,
 }: Props) {
-  const searchParams = useSearchParams()
+  const searchParams =
+    useSearchParams()
 
-  const [selectedCategory, setSelectedCategory] =
-    useState<number | null>(
-      categories[0]?.id ?? null
-    )
+  /*
+   * =========================================================
+   * PARÂMETROS DA URL
+   * =========================================================
+   */
+
+  const categoryFromUrl =
+    searchParams.get('categoria')
+
+  const productFromUrl =
+    searchParams.get('produto')
+
+  const [selectedProduct, setSelectedProduct] =
+    useState<Product | null>(null)
+
+  const [quantity, setQuantity] =
+    useState(1)
 
   const [cart, setCart] =
     useState<CartItem[]>([])
@@ -157,16 +111,149 @@ export default function CardapioClient({
   const [cartOpen, setCartOpen] =
     useState(false)
 
-  const [productModal, setProductModal] =
-    useState<Product | null>(null)
+  const [activeCategory, setActiveCategory] =
+    useState(
+      categories[0]?.slug ?? ''
+    )
+
+  /*
+   * =========================================================
+   * SELECIONAR CATEGORIA VINDO DA URL
+   * =========================================================
+   */
+
+  useEffect(() => {
+    if (categories.length === 0) {
+      return
+    }
+
+    if (categoryFromUrl) {
+      const categoryExists =
+        categories.some(
+          (category) =>
+            category.slug ===
+            categoryFromUrl
+        )
+
+      if (categoryExists) {
+        setActiveCategory(
+          categoryFromUrl
+        )
+
+        return
+      }
+    }
+
+    setActiveCategory(
+      (current) =>
+        categories.some(
+          (category) =>
+            category.slug ===
+            current
+        )
+          ? current
+          : categories[0].slug
+    )
+  }, [
+    categoryFromUrl,
+    categories,
+  ])
+
+  /*
+   * =========================================================
+   * ABRIR PRODUTO VINDO DA URL
+   * =========================================================
+   */
+
+  useEffect(() => {
+    if (!productFromUrl) {
+      return
+    }
+
+    if (
+      products.length === 0 ||
+      categories.length === 0
+    ) {
+      return
+    }
+
+    const productId =
+      Number(productFromUrl)
+
+    if (
+      !Number.isInteger(productId)
+    ) {
+      return
+    }
+
+    const product =
+      products.find(
+        (item) =>
+          item.id === productId
+      )
+
+    if (!product) {
+      return
+    }
+
+    const productCategory =
+      categories.find(
+        (category) =>
+          category.id ===
+          product.category_id
+      )
+
+    if (productCategory) {
+      setActiveCategory(
+        productCategory.slug
+      )
+    }
+
+    setSelectedProduct(product)
+    setQuantity(1)
+  }, [
+    productFromUrl,
+    products,
+    categories,
+  ])
+
+  /*
+   * =========================================================
+   * CHECKOUT / CLIENTE
+   * =========================================================
+   */
 
   const [checkoutStep, setCheckoutStep] =
     useState<CheckoutStep>('cart')
 
-  const [customer, setCustomer] =
-    useState<CustomerForm>(
-      EMPTY_CUSTOMER
-    )
+  const [customerForm, setCustomerForm] =
+    useState<CustomerForm>({
+      name: '',
+      phone: '',
+      address: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      reference: '',
+    })
+
+  const [customerFound, setCustomerFound] =
+    useState(false)
+
+  const [customerLoading, setCustomerLoading] =
+    useState(false)
+
+  const [customerSaving, setCustomerSaving] =
+    useState(false)
+
+  const [customerError, setCustomerError] =
+    useState('')
+
+  /*
+   * =========================================================
+   * ENTREGA / PAGAMENTO
+   * =========================================================
+   */
 
   const [deliveryMethod, setDeliveryMethod] =
     useState<DeliveryMethod>('delivery')
@@ -177,32 +264,305 @@ export default function CardapioClient({
   const [changeFor, setChangeFor] =
     useState('')
 
-  const [customerError, setCustomerError] =
-    useState('')
+  /*
+   * =========================================================
+   * FORMATAÇÃO
+   * =========================================================
+   */
 
-  const [loadingCustomer, setLoadingCustomer] =
-    useState(false)
+  function formatPrice(price: number) {
+    return new Intl.NumberFormat(
+      'pt-BR',
+      {
+        style: 'currency',
+        currency: 'BRL',
+      }
+    ).format(price)
+  }
 
-  const [savingCustomer, setSavingCustomer] =
-    useState(false)
+  function normalizePhone(
+    phone: string
+  ) {
+    return phone.replace(/\D/g, '')
+  }
 
-  const [customerFound, setCustomerFound] =
-    useState(false)
+  function formatPhone(
+    phone: string
+  ) {
+    const digits =
+      normalizePhone(phone)
 
-  const selectedProducts = useMemo(() => {
-    if (selectedCategory === null) {
-      return products
+    if (digits.length <= 2) {
+      return digits
     }
 
-    return products.filter(
-      (product) =>
-        product.category_id === selectedCategory &&
-        product.available
+    if (digits.length <= 7) {
+      return `(${digits.slice(
+        0,
+        2
+      )}) ${digits.slice(2)}`
+    }
+
+    return `(${digits.slice(
+      0,
+      2
+    )}) ${digits.slice(
+      2,
+      7
+    )}-${digits.slice(7, 11)}`
+  }
+
+  /*
+   * =========================================================
+   * FORMATAÇÃO DO TROCO
+   * =========================================================
+   *
+   * O usuário digita somente números.
+   *
+   * Exemplos:
+   *
+   * 1      → 0,01
+   * 10     → 0,10
+   * 100    → 1,00
+   * 1000   → 10,00
+   * 10000  → 100,00
+   *
+   * Limite:
+   *
+   * 999999 → 9.999,99
+   */
+
+  function formatChange(
+    value: string
+  ) {
+    const digits =
+      value.replace(/\D/g, '')
+
+    if (!digits) {
+      return ''
+    }
+
+    const limitedDigits =
+      digits.slice(0, 6)
+
+    const numericValue =
+      Number(limitedDigits) / 100
+
+    return numericValue.toLocaleString(
+      'pt-BR',
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
     )
-  }, [
-    products,
-    selectedCategory,
-  ])
+  }
+
+  /*
+   * =========================================================
+   * CONVERTER TROCO PARA NÚMERO
+   * =========================================================
+   *
+   * Exemplo:
+   *
+   * 1.250,00 → 1250
+   */
+
+  function parseChange(
+    value: string
+  ) {
+    if (!value.trim()) {
+      return 0
+    }
+
+    return Number(
+      value
+        .replace(/\./g, '')
+        .replace(',', '.')
+    )
+  }
+
+  /*
+   * =========================================================
+   * PRODUTO
+   * =========================================================
+   */
+
+  function openProduct(
+    product: Product
+  ) {
+    setSelectedProduct(product)
+    setQuantity(1)
+  }
+
+  function closeProduct() {
+    setSelectedProduct(null)
+    setQuantity(1)
+  }
+
+  function increaseQuantity() {
+    setQuantity(
+      (current) => current + 1
+    )
+  }
+
+  function decreaseQuantity() {
+    setQuantity(
+      (current) =>
+        current > 1
+          ? current - 1
+          : 1
+    )
+  }
+
+  /*
+   * =========================================================
+   * CARRINHO
+   * =========================================================
+   */
+
+  function addToCart(
+    product: Product,
+    amount = 1
+  ) {
+    setCart((currentCart) => {
+      const existingItem =
+        currentCart.find(
+          (item) =>
+            item.product.id ===
+            product.id
+        )
+
+      if (existingItem) {
+        return currentCart.map(
+          (item) =>
+            item.product.id ===
+            product.id
+              ? {
+                  ...item,
+                  quantity:
+                    item.quantity +
+                    amount,
+                }
+              : item
+        )
+      }
+
+      return [
+        ...currentCart,
+        {
+          product,
+          quantity: amount,
+        },
+      ]
+    })
+  }
+
+  function addProductQuick(
+    product: Product
+  ) {
+    addToCart(product, 1)
+  }
+
+  function addSelectedProduct() {
+    if (!selectedProduct) {
+      return
+    }
+
+    addToCart(
+      selectedProduct,
+      quantity
+    )
+
+    closeProduct()
+  }
+
+  function increaseCartItem(
+    productId: number
+  ) {
+    setCart((currentCart) =>
+      currentCart.map(
+        (item) =>
+          item.product.id ===
+          productId
+            ? {
+                ...item,
+                quantity:
+                  item.quantity + 1,
+              }
+            : item
+      )
+    )
+  }
+
+  function decreaseCartItem(
+    productId: number
+  ) {
+    setCart((currentCart) =>
+      currentCart
+        .map((item) =>
+          item.product.id ===
+          productId
+            ? {
+                ...item,
+                quantity:
+                  item.quantity - 1,
+              }
+            : item
+        )
+        .filter(
+          (item) =>
+            item.quantity > 0
+        )
+    )
+  }
+
+  function removeCartItem(
+    productId: number
+  ) {
+    setCart((currentCart) =>
+      currentCart.filter(
+        (item) =>
+          item.product.id !==
+          productId
+      )
+    )
+  }
+
+  /*
+   * =========================================================
+   * LIMPAR PEDIDO / PREPARAR NOVO PEDIDO
+   * =========================================================
+   */
+
+  function clearCart() {
+    setCart([])
+
+    setCheckoutStep('cart')
+
+    setCustomerFound(false)
+
+    setCustomerError('')
+
+    setCustomerForm({
+      name: '',
+      phone: '',
+      address: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      reference: '',
+    })
+
+    setDeliveryMethod('delivery')
+    setPaymentMethod('pix')
+    setChangeFor('')
+  }
+
+  /*
+   * =========================================================
+   * CÁLCULOS
+   * =========================================================
+   */
 
   const cartQuantity = useMemo(
     () =>
@@ -219,248 +579,112 @@ export default function CardapioClient({
       cart.reduce(
         (total, item) =>
           total +
-          item.product.price *
+          Number(
+            item.product.price
+          ) *
             item.quantity,
         0
       ),
     [cart]
   )
 
-  const selectedProductId =
-    searchParams.get('produto')
+  /*
+   * =========================================================
+   * CATEGORIAS
+   * =========================================================
+   */
 
-  useEffect(() => {
-    if (!selectedProductId) {
-      return
-    }
-
-    const product = products.find(
-      (item) =>
-        String(item.id) ===
-        selectedProductId
-    )
-
-    if (product) {
-      setProductModal(product)
-    }
-  }, [
-    selectedProductId,
-    products,
-  ])
-
-  function addToCart(product: Product) {
-    if (!product.available) {
-      return
-    }
-
-    setCart((currentCart) => {
-      const existing = currentCart.find(
-        (item) =>
-          item.product.id === product.id
-      )
-
-      if (existing) {
-        return currentCart.map((item) =>
-          item.product.id === product.id
-            ? {
-                ...item,
-                quantity:
-                  item.quantity + 1,
-              }
-            : item
-        )
-      }
-
-      return [
-        ...currentCart,
-        {
-          product,
-          quantity: 1,
-        },
-      ]
-    })
-
-    setCartOpen(true)
-  }
-
-  function increaseQuantity(
-    productId: number
+  function getCategoryName(
+    categoryId: number
   ) {
-    setCart((currentCart) =>
-      currentCart.map((item) =>
-        item.product.id === productId
-          ? {
-              ...item,
-              quantity:
-                item.quantity + 1,
-            }
-          : item
-      )
+    return (
+      categories.find(
+        (category) =>
+          category.id ===
+          categoryId
+      )?.name ?? ''
     )
   }
 
-  function decreaseQuantity(
-    productId: number
+  function selectCategory(
+    slug: string
   ) {
-    setCart((currentCart) =>
-      currentCart
-        .map((item) =>
-          item.product.id === productId
-            ? {
-                ...item,
-                quantity:
-                  item.quantity - 1,
-              }
-            : item
-        )
-        .filter(
-          (item) =>
-            item.quantity > 0
-        )
-    )
+    setActiveCategory(slug)
   }
 
-  function removeFromCart(
-    productId: number
-  ) {
-    setCart((currentCart) =>
-      currentCart.filter(
-        (item) =>
-          item.product.id !== productId
-      )
-    )
-  }
+  /*
+   * =========================================================
+   * FORMULÁRIO
+   * =========================================================
+   */
 
-  function clearCart() {
-    setCart([])
-    setCheckoutStep('cart')
-    setChangeFor('')
-  }
-
-  function updateCustomer(
+  function updateCustomerField(
     field: keyof CustomerForm,
     value: string
   ) {
-    setCustomer((current) => ({
-      ...current,
-      [field]: value,
-    }))
+    setCustomerForm(
+      (current) => ({
+        ...current,
+        [field]: value,
+      })
+    )
 
-    setCustomerError('')
+    if (customerError) {
+      setCustomerError('')
+    }
   }
 
-  async function loadCustomer(
-    phone: string
-  ) {
-    const normalized =
-      normalizePhone(phone)
+  /*
+   * =========================================================
+   * INICIAR CHECKOUT
+   * =========================================================
+   */
 
-    if (normalized.length < 10) {
-      setCustomerFound(false)
+  function startCheckout() {
+    if (cart.length === 0) {
       return
     }
 
-    setLoadingCustomer(true)
     setCustomerError('')
-
-    try {
-      const response = await fetch(
-        `/api/customer?phone=${encodeURIComponent(
-          normalized
-        )}`,
-        {
-          method: 'GET',
-          cache: 'no-store',
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(
-          'Não foi possível consultar o cadastro.'
-        )
-      }
-
-      const data =
-        await response.json()
-
-      if (data.customer) {
-        setCustomer({
-          name:
-            data.customer.name ?? '',
-          phone: formatPhone(
-            data.customer.phone ??
-              normalized
-          ),
-          address:
-            data.customer.address ?? '',
-          number:
-            data.customer.number ?? '',
-          complement:
-            data.customer.complement ?? '',
-          neighborhood:
-            data.customer.neighborhood ??
-            '',
-          reference:
-            data.customer.reference ?? '',
-        })
-
-        setCustomerFound(true)
-      } else {
-        setCustomerFound(false)
-      }
-    } catch {
-      setCustomerFound(false)
-    } finally {
-      setLoadingCustomer(false)
-    }
+    setCustomerFound(false)
+    setCheckoutStep('phone')
   }
 
-  async function saveCustomer() {
-    const normalizedPhone =
-      normalizePhone(customer.phone)
+  /*
+   * =========================================================
+   * BUSCAR CLIENTE
+   * =========================================================
+   */
 
-    if (
-      !customer.name.trim() ||
-      normalizedPhone.length < 10 ||
-      !customer.address.trim() ||
-      !customer.number.trim() ||
-      !customer.neighborhood.trim()
-    ) {
-      setCustomerError(
-        'Preencha nome, telefone, endereço, número e bairro.'
+  async function searchCustomer() {
+    const phone =
+      normalizePhone(
+        customerForm.phone
       )
 
-      return false
+    if (phone.length < 10) {
+      setCustomerError(
+        'Digite um WhatsApp válido.'
+      )
+
+      return
     }
 
-    setSavingCustomer(true)
+    setCustomerLoading(true)
     setCustomerError('')
+    setCustomerFound(false)
 
     try {
-      const response = await fetch(
-        '/api/customer',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-          body: JSON.stringify({
-            name: customer.name.trim(),
-            phone: normalizedPhone,
-            address:
-              customer.address.trim(),
-            number:
-              customer.number.trim(),
-            complement:
-              customer.complement.trim(),
-            neighborhood:
-              customer.neighborhood.trim(),
-            reference:
-              customer.reference.trim(),
-          }),
-        }
-      )
+      const response =
+        await fetch(
+          `/api/customer?phone=${encodeURIComponent(
+            phone
+          )}`,
+          {
+            method: 'GET',
+            cache: 'no-store',
+          }
+        )
 
       const data =
         await response.json()
@@ -468,63 +692,261 @@ export default function CardapioClient({
       if (!response.ok) {
         throw new Error(
           data?.error ||
-            'Não foi possível salvar o cadastro.'
+            'Não foi possível consultar o cadastro.'
         )
       }
 
       if (data.customer) {
-        setCustomer({
+        const customer =
+          data.customer as Customer
+
+        setCustomerForm({
           name:
-            data.customer.name ??
-            customer.name,
-          phone: formatPhone(
-            data.customer.phone ??
-              normalizedPhone
-          ),
+            customer.name ?? '',
+
+          phone:
+            customer.phone ??
+            phone,
+
           address:
-            data.customer.address ??
-            customer.address,
+            customer.address ??
+            '',
+
           number:
-            data.customer.number ??
-            customer.number,
+            customer.number ?? '',
+
           complement:
-            data.customer.complement ??
-            customer.complement,
+            customer.complement ??
+            '',
+
           neighborhood:
-            data.customer.neighborhood ??
-            customer.neighborhood,
+            customer.neighborhood ??
+            '',
+
           reference:
-            data.customer.reference ??
-            customer.reference,
+            customer.reference ??
+            '',
         })
+
+        setCustomerFound(true)
+      } else {
+        setCustomerForm(
+          (current) => ({
+            ...current,
+            phone,
+          })
+        )
+
+        setCustomerFound(false)
       }
 
-      setCustomerFound(true)
-
-      return true
+      setCheckoutStep('customer')
     } catch (error) {
+      console.error(
+        'Erro ao buscar cliente:',
+        error
+      )
+
       setCustomerError(
         error instanceof Error
           ? error.message
-          : 'Não foi possível salvar o cadastro.'
+          : 'Não foi possível consultar o cadastro.'
       )
-
-      return false
     } finally {
-      setSavingCustomer(false)
+      setCustomerLoading(false)
     }
   }
 
-  async function continueToPayment() {
-    const saved =
-      await saveCustomer()
+  /*
+   * =========================================================
+   * SALVAR CLIENTE
+   * =========================================================
+   */
 
-    if (!saved) {
+  async function saveCustomer() {
+    const phone =
+      normalizePhone(
+        customerForm.phone
+      )
+
+    const payload = {
+      name:
+        customerForm.name.trim(),
+
+      phone,
+
+      address:
+        customerForm.address.trim(),
+
+      number:
+        customerForm.number.trim(),
+
+      complement:
+        customerForm.complement.trim(),
+
+      neighborhood:
+        customerForm.neighborhood.trim(),
+
+      reference:
+        customerForm.reference.trim(),
+    }
+
+    if (!payload.name) {
+      setCustomerError(
+        'Digite seu nome.'
+      )
+
       return
     }
 
+    if (phone.length < 10) {
+      setCustomerError(
+        'Digite um WhatsApp válido.'
+      )
+
+      return
+    }
+
+    if (!payload.address) {
+      setCustomerError(
+        'Digite seu endereço.'
+      )
+
+      return
+    }
+
+    if (!payload.number) {
+      setCustomerError(
+        'Digite o número do endereço.'
+      )
+
+      return
+    }
+
+    if (!payload.neighborhood) {
+      setCustomerError(
+        'Digite seu bairro.'
+      )
+
+      return
+    }
+
+    setCustomerSaving(true)
+    setCustomerError('')
+
+    try {
+      const response =
+        await fetch(
+          '/api/customer',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':
+                'application/json',
+            },
+            body: JSON.stringify(
+              payload
+            ),
+          }
+        )
+
+      const data =
+        await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            'Não foi possível salvar seu cadastro.'
+        )
+      }
+
+      if (data.customer) {
+        const customer =
+          data.customer as Customer
+
+        setCustomerForm({
+          name:
+            customer.name ?? '',
+
+          phone:
+            customer.phone ??
+            phone,
+
+          address:
+            customer.address ??
+            '',
+
+          number:
+            customer.number ?? '',
+
+          complement:
+            customer.complement ??
+            '',
+
+          neighborhood:
+            customer.neighborhood ??
+            '',
+
+          reference:
+            customer.reference ??
+            '',
+        })
+      }
+
+      setCheckoutStep('delivery')
+    } catch (error) {
+      console.error(
+        'Erro ao salvar cliente:',
+        error
+      )
+
+      setCustomerError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível salvar seu cadastro.'
+      )
+    } finally {
+      setCustomerSaving(false)
+    }
+  }
+
+  /*
+   * =========================================================
+   * ENTREGA
+   * =========================================================
+   */
+
+  function continueToPayment() {
+    if (
+      deliveryMethod ===
+      'delivery'
+    ) {
+      if (
+        !customerForm.address.trim() ||
+        !customerForm.number.trim() ||
+        !customerForm.neighborhood.trim()
+      ) {
+        setCustomerError(
+          'Seu endereço está incompleto.'
+        )
+
+        setCheckoutStep(
+          'customer'
+        )
+
+        return
+      }
+    }
+
+    setCustomerError('')
     setCheckoutStep('payment')
   }
+
+  /*
+   * =========================================================
+   * PAGAMENTO
+   * =========================================================
+   */
 
   function continueToConfirmation() {
     if (
@@ -554,81 +976,37 @@ export default function CardapioClient({
     setCheckoutStep('confirmed')
   }
 
-  function backToCart() {
-    setCheckoutStep('cart')
-    setCustomerError('')
-  }
-
-  function backToCustomer() {
-    setCheckoutStep('customer')
-    setCustomerError('')
-  }
-
-  function startCheckout() {
-    if (!cart.length) {
-      return
-    }
-
-    setCustomerError('')
-    setCheckoutStep('customer')
-  }
-
-  function startQuickOrder() {
-    if (!cart.length) {
-      return
-    }
-
-    setCustomerError('')
-    setCheckoutStep('customer')
-  }
-
-  function formatPaymentMethod() {
-    if (paymentMethod === 'pix') {
-      return 'Pix'
-    }
-
-    if (paymentMethod === 'cash') {
-      return 'Dinheiro'
-    }
-
-    return 'Cartão'
-  }
-
-  function formatDeliveryMethod() {
-    if (deliveryMethod === 'pickup') {
-      return 'Retirada no local'
-    }
-
-    return 'Entrega'
-  }
+  /*
+   * =========================================================
+   * MENSAGEM DO WHATSAPP
+   * =========================================================
+   */
 
   function buildWhatsAppMessage() {
     const lines: string[] = []
 
     lines.push(
-      '*NOVO PEDIDO — BRASÃO BURGER*'
+      '🍔 *NOVO PEDIDO — BRASÃO BURGER*'
     )
 
     lines.push('')
-
-    lines.push(
-      '*ITENS DO PEDIDO*'
-    )
+    lines.push('*ITENS DO PEDIDO*')
 
     cart.forEach((item) => {
-      const subtotal =
-        item.product.price *
+      const itemTotal =
+        Number(
+          item.product.price
+        ) *
         item.quantity
 
       lines.push(
         `${item.quantity}x ${item.product.name} — ${formatPrice(
-          subtotal
+          itemTotal
         )}`
       )
     })
 
     lines.push('')
-
     lines.push(
       `*TOTAL: ${formatPrice(
         cartTotal
@@ -636,101 +1014,120 @@ export default function CardapioClient({
     )
 
     lines.push('')
+    lines.push('*CLIENTE*')
 
     lines.push(
-      `*FORMA DE PAGAMENTO:* ${formatPaymentMethod()}`
+      `Nome: ${customerForm.name}`
     )
 
+    lines.push(
+      `WhatsApp: ${formatPhone(
+        customerForm.phone
+      )}`
+    )
+
+    lines.push('')
+    lines.push('*ENTREGA*')
+
     if (
-      paymentMethod === 'cash' &&
-      changeFor
+      deliveryMethod ===
+      'delivery'
     ) {
       lines.push(
-        `Troco para: R$ ${changeFor}`
+        'Forma: Entrega'
       )
 
-      const numericChange =
-        parseChange(changeFor)
+      lines.push(
+        `Endereço: ${customerForm.address}, ${customerForm.number}`
+      )
 
-      const changeAmount =
-        numericChange - cartTotal
+      if (
+        customerForm.complement.trim()
+      ) {
+        lines.push(
+          `Complemento: ${customerForm.complement}`
+        )
+      }
 
       lines.push(
-        `Troco: ${formatPrice(
-          changeAmount
-        )}`
+        `Bairro: ${customerForm.neighborhood}`
+      )
+
+      if (
+        customerForm.reference.trim()
+      ) {
+        lines.push(
+          `Referência: ${customerForm.reference}`
+        )
+      }
+    } else {
+      lines.push(
+        'Forma: Retirada no local'
       )
     }
 
     lines.push('')
-
-    lines.push(
-      `*MODALIDADE:* ${formatDeliveryMethod()}`
-    )
+    lines.push('*PAGAMENTO*')
 
     if (
-      deliveryMethod === 'delivery'
+      paymentMethod === 'pix'
     ) {
-      lines.push('')
-
       lines.push(
-        '*DADOS PARA ENTREGA*'
-      )
-
-      lines.push(
-        `Nome: ${customer.name}`
-      )
-
-      lines.push(
-        `Telefone: ${customer.phone}`
-      )
-
-      lines.push(
-        `Endereço: ${customer.address}, ${customer.number}`
-      )
-
-      if (customer.complement) {
-        lines.push(
-          `Complemento: ${customer.complement}`
-        )
-      }
-
-      lines.push(
-        `Bairro: ${customer.neighborhood}`
-      )
-
-      if (customer.reference) {
-        lines.push(
-          `Referência: ${customer.reference}`
-        )
-      }
-    } else {
-      lines.push('')
-
-      lines.push(
-        `Nome: ${customer.name}`
-      )
-
-      lines.push(
-        `Telefone: ${customer.phone}`
+        'Forma: Pix'
       )
     }
+
+    if (
+      paymentMethod === 'card'
+    ) {
+      lines.push(
+        'Forma: Cartão'
+      )
+    }
+
+    if (
+      paymentMethod === 'cash'
+    ) {
+      lines.push(
+        'Forma: Dinheiro'
+      )
+
+      if (changeFor.trim()) {
+        lines.push(
+          `Troco para: R$ ${changeFor}`
+        )
+      } else {
+        lines.push(
+          'Sem necessidade de troco'
+        )
+      }
+    }
+
+    lines.push('')
+    lines.push(
+      'Aguardo a confirmação do pedido. Obrigado!'
+    )
 
     return lines.join('\n')
   }
 
+  /*
+   * =========================================================
+   * ENVIAR PEDIDO PARA WHATSAPP
+   * =========================================================
+   */
+
   function sendOrderToWhatsApp() {
-    if (!cart.length) {
+    if (cart.length === 0) {
       return
     }
 
     const message =
       buildWhatsAppMessage()
 
-    const url =
-      `https://wa.me/${SITE_CONFIG.whatsapp.number}?text=${encodeURIComponent(
-        message
-      )}`
+ const url = `https://wa.me/${SITE_CONFIG.whatsapp.number}?text=${encodeURIComponent(
+  message
+)}`
 
     window.open(
       url,
@@ -739,269 +1136,631 @@ export default function CardapioClient({
     )
 
     clearCart()
+
     setCartOpen(false)
   }
 
-  function talkToSeller() {
-    window.open(
-      SITE_CONFIG.whatsapp.general,
-      '_blank',
-      'noopener,noreferrer'
-    )
+  /*
+   * =========================================================
+   * VOLTAR
+   * =========================================================
+   */
+
+  function backToCart() {
+    setCheckoutStep('cart')
+    setCustomerError('')
   }
 
-  function handlePhoneBlur() {
-    if (customer.phone) {
-      loadCustomer(
-        customer.phone
+  /*
+   * =========================================================
+   * BODY SCROLL
+   * =========================================================
+   */
+
+  useEffect(() => {
+    if (
+      !selectedProduct &&
+      !cartOpen
+    ) {
+      document.body.style.overflow =
+        ''
+
+      return
+    }
+
+    document.body.style.overflow =
+      'hidden'
+
+    return () => {
+      document.body.style.overflow =
+        ''
+    }
+  }, [
+    selectedProduct,
+    cartOpen,
+  ])
+
+  /*
+   * =========================================================
+   * ESC
+   * =========================================================
+   */
+
+  useEffect(() => {
+    function handleEscape(
+      event: KeyboardEvent
+    ) {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      if (selectedProduct) {
+        closeProduct()
+        return
+      }
+
+      if (cartOpen) {
+        if (
+          checkoutStep !== 'cart'
+        ) {
+          backToCart()
+          return
+        }
+
+        setCartOpen(false)
+      }
+    }
+
+    window.addEventListener(
+      'keydown',
+      handleEscape
+    )
+
+    return () => {
+      window.removeEventListener(
+        'keydown',
+        handleEscape
       )
     }
-  }
+  }, [
+    selectedProduct,
+    cartOpen,
+    checkoutStep,
+  ])
+
+  /*
+   * =========================================================
+   * CATEGORIA ATIVA
+   * =========================================================
+   */
+
+  const activeCategoryData =
+    categories.find(
+      (category) =>
+        category.slug ===
+        activeCategory
+    ) ?? categories[0]
+
+  const activeProducts =
+    activeCategoryData
+      ? products.filter(
+          (product) =>
+            product.category_id ===
+            activeCategoryData.id
+        )
+      : []
+
+  /*
+   * =========================================================
+   * RENDER
+   * =========================================================
+   */
 
   return (
-    <main className={styles.page}>
-      <section
-        className={styles.menuSection}
-        id="cardapio"
+    <main
+      className={styles.page}
+    >
+
+      {/* =====================================================
+          HEADER
+          ===================================================== */}
+
+      <header
+        className={styles.header}
       >
-        <div className={styles.menuHeader}>
-          <span
-            className={styles.menuEyebrow}
-          >
-            BRASÃO BURGER
-          </span>
-
-          <h1
-            className={styles.menuTitle}
-          >
-            Cardápio
-          </h1>
-
-          <p
-            className={
-              styles.menuDescription
-            }
-          >
-            Escolha seu burger,
-            monte seu pedido e
-            finalize pelo WhatsApp.
-          </p>
-        </div>
 
         <div
           className={
-            styles.categoryNavigation
+            styles.headerTop
           }
-          role="tablist"
-          aria-label="Categorias do cardápio"
         >
+
+          <a
+            href="/"
+            className={
+              styles.brand
+            }
+            aria-label="Voltar para o início"
+          >
+            <span
+              className={
+                styles.brandSymbol
+              }
+            >
+              B
+            </span>
+
+            <span>
+              BRASÃO BURGER
+            </span>
+          </a>
+
+          <span
+            className={
+              styles.headerCode
+            }
+          >
+            MENU / 01
+          </span>
+
+        </div>
+
+        <div
+          className={styles.intro}
+        >
+
+          <span
+            className={
+              styles.eyebrow
+            }
+          >
+            HAMBÚRGUER · PARRILLA · BAR
+          </span>
+
+          <h1>
+            Nosso <em>cardápio.</em>
+          </h1>
+
+          <p>
+            Escolha seu pedido e aproveite
+            o sabor do Brasão.
+          </p>
+
+        </div>
+
+      </header>
+
+      {/* =====================================================
+          CATEGORIAS
+          ===================================================== */}
+
+      <nav
+        className={
+          styles.categoryNav
+        }
+        aria-label="Categorias do cardápio"
+      >
+
+        <div
+          className={
+            styles.categoryNavInner
+          }
+        >
+
           {categories.map(
             (category) => (
+
               <button
                 key={category.id}
                 type="button"
-                role="tab"
-                aria-selected={
-                  selectedCategory ===
-                  category.id
-                }
-                className={
-                  selectedCategory ===
-                  category.id
-                    ? styles.categoryButtonActive
-                    : styles.categoryButton
-                }
+                className={`
+                  ${styles.categoryLink}
+                  ${
+                    activeCategory ===
+                    category.slug
+                      ? styles.categoryActive
+                      : ''
+                  }
+                `}
                 onClick={() =>
-                  setSelectedCategory(
-                    category.id
+                  selectCategory(
+                    category.slug
                   )
+                }
+                aria-pressed={
+                  activeCategory ===
+                  category.slug
                 }
               >
                 {category.name}
               </button>
+
             )
           )}
+
         </div>
 
-        <div
-          className={styles.productGrid}
-        >
-          {selectedProducts.map(
-            (product) => (
-              <article
-                key={product.id}
+      </nav>
+
+      {/* =====================================================
+          PRODUTOS
+          ===================================================== */}
+
+      <div
+        className={styles.menu}
+      >
+
+        {activeCategoryData && (
+
+          <section
+            className={
+              styles.categorySection
+            }
+          >
+
+            <div
+              className={
+                styles.categoryHeader
+              }
+            >
+
+              <div
                 className={
-                  styles.productCard
+                  styles.categoryHeading
                 }
               >
-                {product.image_url && (
-                  <div
-                    className={
-                      styles.productImageWrapper
-                    }
-                  >
-                    <img
-                      src={
-                        product.image_url
-                      }
-                      alt={
-                        product.name
-                      }
-                      className={
-                        styles.productImage
-                      }
-                    />
-                  </div>
-                )}
 
-                <div
+                <span
                   className={
-                    styles.productContent
+                    styles.categoryNumber
                   }
                 >
-                  {product.featured && (
-                    <span
+                  {String(
+                    activeCategoryData.sort_order +
+                      1
+                  ).padStart(
+                    2,
+                    '0'
+                  )}
+                </span>
+
+                <h2>
+                  {
+                    activeCategoryData.name
+                  }
+                </h2>
+
+              </div>
+
+              <span
+                className={
+                  styles.categoryCount
+                }
+              >
+                {
+                  activeProducts.length
+                }
+              </span>
+
+            </div>
+
+            <div
+              className={
+                styles.productList
+              }
+            >
+
+              {activeProducts.map(
+                (product) => (
+
+                  <article
+                    key={
+                      product.id
+                    }
+                    className={`
+                      ${styles.productRow}
+                      ${
+                        product.featured
+                          ? styles.featuredRow
+                          : ''
+                      }
+                    `}
+                  >
+
+                    {product.image_url && (
+
+                      <button
+                        type="button"
+                        className={
+                          styles.thumbnail
+                        }
+                        onClick={() =>
+                          openProduct(
+                            product
+                          )
+                        }
+                        aria-label={`Ver ${product.name}`}
+                      >
+                        <img
+                          src={
+                            product.image_url
+                          }
+                          alt=""
+                          loading="lazy"
+                        />
+                      </button>
+
+                    )}
+
+                    <button
+                      type="button"
                       className={
-                        styles.productFeatured
+                        styles.productMain
+                      }
+                      onClick={() =>
+                        openProduct(
+                          product
+                        )
                       }
                     >
-                      Destaque
-                    </span>
-                  )}
 
-                  <h2
-                    className={
-                      styles.productName
-                    }
-                  >
-                    {product.name}
-                  </h2>
+                      <div
+                        className={
+                          styles.productNameLine
+                        }
+                      >
 
-                  {product.description && (
-                    <p
-                      className={
-                        styles.productDescription
-                      }
-                    >
-                      {
-                        product.description
-                      }
-                    </p>
-                  )}
+                        <h3>
+                          {
+                            product.name
+                          }
+                        </h3>
 
-                  <div
-                    className={
-                      styles.productFooter
-                    }
-                  >
+                        {product.featured && (
+
+                          <span
+                            className={
+                              styles.featuredTag
+                            }
+                          >
+                            Destaque
+                          </span>
+
+                        )}
+
+                      </div>
+
+                      {product.description && (
+
+                        <p>
+                          {
+                            product.description
+                          }
+                        </p>
+
+                      )}
+
+                    </button>
+
                     <strong
                       className={
-                        styles.productPrice
+                        styles.price
                       }
                     >
                       {formatPrice(
-                        product.price
+                        Number(
+                          product.price
+                        )
                       )}
                     </strong>
 
                     <button
                       type="button"
                       className={
-                        styles.productDetailsButton
+                        styles.addQuick
                       }
                       onClick={() =>
-                        setProductModal(
+                        addProductQuick(
                           product
                         )
                       }
+                      aria-label={`Adicionar ${product.name} ao carrinho`}
                     >
-                      Detalhes
+                      +
                     </button>
-                  </div>
 
-                  <button
-                    type="button"
-                    className={
-                      styles.addButton
-                    }
-                    onClick={() =>
-                      addToCart(product)
-                    }
-                  >
-                    Adicionar ao pedido
-                  </button>
-                </div>
-              </article>
-            )
-          )}
-        </div>
+                  </article>
 
-        {!selectedProducts.length && (
-          <div
-            className={
-              styles.emptyState
-            }
-          >
-            <p>
-              Nenhum produto disponível
-              nesta categoria no
-              momento.
-            </p>
-          </div>
+                )
+              )}
+
+            </div>
+
+          </section>
+
         )}
-      </section>
 
-      {productModal && (
+      </div>
+
+      {/* =====================================================
+          FOOTER
+          ===================================================== */}
+
+      <footer
+        className={styles.footer}
+      >
+
         <div
-          className={styles.modalOverlay}
-          role="dialog"
-          aria-modal="true"
-          aria-label={
-            productModal.name
+          className={
+            styles.footerLine
           }
-          onClick={() =>
-            setProductModal(null)
+        />
+
+        <div
+          className={
+            styles.footerContent
           }
         >
+
+          <span>
+            BRASÃO BURGER
+          </span>
+
+          <span>
+            TAUBATÉ · SP
+          </span>
+
+          <a href="/">
+            Início ↗
+          </a>
+
+        </div>
+
+      </footer>
+
+      {/* =====================================================
+          BARRA FIXA DO CARRINHO
+          ===================================================== */}
+
+      {cartQuantity > 0 &&
+        !cartOpen && (
+
           <div
             className={
-              styles.productModal
-            }
-            onClick={(event) =>
-              event.stopPropagation()
+              styles.cartBarWrap
             }
           >
+
             <button
               type="button"
               className={
-                styles.modalClose
+                styles.cartBar
               }
-              aria-label="Fechar"
               onClick={() =>
-                setProductModal(null)
+                setCartOpen(true)
               }
+              aria-label="Abrir carrinho"
+            >
+
+              <span
+                className={
+                  styles.cartBarIcon
+                }
+              >
+                🛒
+              </span>
+
+              <span
+                className={
+                  styles.cartBarInfo
+                }
+              >
+
+                <span
+                  className={
+                    styles.cartBarLabel
+                  }
+                >
+                  Seu pedido
+                </span>
+
+                <strong>
+                  {cartQuantity}{' '}
+                  {cartQuantity ===
+                  1
+                    ? 'item'
+                    : 'itens'}
+                </strong>
+
+              </span>
+
+              <span
+                className={
+                  styles.cartBarTotal
+                }
+              >
+                {formatPrice(
+                  cartTotal
+                )}
+              </span>
+
+              <span
+                className={
+                  styles.cartBarArrow
+                }
+              >
+                →
+              </span>
+
+            </button>
+
+          </div>
+
+        )}
+
+      {/* =====================================================
+          MODAL DO PRODUTO
+          ===================================================== */}
+
+      {selectedProduct && (
+
+        <div
+          className={
+            styles.modalBackdrop
+          }
+          onMouseDown={(
+            event
+          ) => {
+
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeProduct()
+            }
+
+          }}
+        >
+
+          <div
+            className={
+              styles.modal
+            }
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="product-title"
+          >
+
+            <button
+              type="button"
+              className={
+                styles.closeButton
+              }
+              onClick={
+                closeProduct
+              }
+              aria-label="Fechar detalhes"
             >
               ×
             </button>
 
-            {productModal.image_url && (
+            {selectedProduct.image_url && (
+
               <div
                 className={
-                  styles.modalImageWrapper
+                  styles.modalImage
                 }
               >
                 <img
                   src={
-                    productModal.image_url
+                    selectedProduct.image_url
                   }
                   alt={
-                    productModal.name
-                  }
-                  className={
-                    styles.modalImage
+                    selectedProduct.name
                   }
                 />
               </div>
+
             )}
 
             <div
@@ -1009,157 +1768,240 @@ export default function CardapioClient({
                 styles.modalContent
               }
             >
-              {productModal.featured && (
-                <span
-                  className={
-                    styles.productFeatured
-                  }
-                >
-                  Destaque
-                </span>
-              )}
 
-              <h2
+              <span
                 className={
-                  styles.modalTitle
+                  styles.modalCategory
                 }
               >
-                {productModal.name}
+                {getCategoryName(
+                  selectedProduct.category_id
+                )}
+              </span>
+
+              <h2 id="product-title">
+                {
+                  selectedProduct.name
+                }
               </h2>
 
-              {productModal.description && (
+              {selectedProduct.description && (
+
                 <p
                   className={
                     styles.modalDescription
                   }
                 >
                   {
-                    productModal.description
+                    selectedProduct.description
                   }
                 </p>
+
               )}
 
-              <strong
+              <div
                 className={
                   styles.modalPrice
                 }
               >
                 {formatPrice(
-                  productModal.price
+                  Number(
+                    selectedProduct.price
+                  )
                 )}
-              </strong>
+              </div>
+
+              <div
+                className={
+                  styles.quantityArea
+                }
+              >
+
+                <span>
+                  Quantidade
+                </span>
+
+                <div
+                  className={
+                    styles.quantityControl
+                  }
+                >
+
+                  <button
+                    type="button"
+                    onClick={
+                      decreaseQuantity
+                    }
+                    aria-label="Diminuir quantidade"
+                  >
+                    −
+                  </button>
+
+                  <strong>
+                    {quantity}
+                  </strong>
+
+                  <button
+                    type="button"
+                    onClick={
+                      increaseQuantity
+                    }
+                    aria-label="Aumentar quantidade"
+                  >
+                    +
+                  </button>
+
+                </div>
+
+              </div>
+
+              <div
+                className={
+                  styles.total
+                }
+              >
+
+                <span>
+                  Total
+                </span>
+
+                <strong>
+                  {formatPrice(
+                    Number(
+                      selectedProduct.price
+                    ) *
+                      quantity
+                  )}
+                </strong>
+
+              </div>
 
               <button
                 type="button"
                 className={
                   styles.addButton
                 }
-                onClick={() => {
-                  addToCart(
-                    productModal
-                  )
-
-                  setProductModal(
-                    null
-                  )
-                }}
+                onClick={
+                  addSelectedProduct
+                }
               >
-                Adicionar ao pedido
+                <span>
+                  Adicionar ao pedido
+                </span>
+
+                <strong>
+                  →
+                </strong>
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       )}
 
+      {/* =====================================================
+          CARRINHO / CHECKOUT
+          ===================================================== */}
+
       {cartOpen && (
+
         <div
           className={
-            styles.cartOverlay
+            styles.cartBackdrop
           }
-          role="dialog"
-          aria-modal="true"
-          onClick={() =>
+          onMouseDown={(
+            event
+          ) => {
+
+            if (
+              event.target !==
+              event.currentTarget
+            ) {
+              return
+            }
+
+            if (
+              checkoutStep !==
+              'cart'
+            ) {
+              backToCart()
+              return
+            }
+
             setCartOpen(false)
-          }
+          }}
         >
+
           <aside
             className={
               styles.cartPanel
             }
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cart-title"
           >
-            <div
-              className={
-                styles.cartHeader
-              }
-            >
-              <div>
-                <span
-                  className={
-                    styles.cartEyebrow
-                  }
-                >
-                  SEU PEDIDO
-                </span>
 
-                <h2
-                  className={
-                    styles.cartTitle
-                  }
-                >
-                  Carrinho
-                </h2>
-              </div>
+            {/* =================================================
+                CARRINHO
+                ================================================= */}
 
-              <button
-                type="button"
-                className={
-                  styles.modalClose
-                }
-                aria-label="Fechar carrinho"
-                onClick={() =>
-                  setCartOpen(false)
-                }
-              >
-                ×
-              </button>
-            </div>
+            {checkoutStep ===
+              'cart' && (
 
-            {!cart.length ? (
-              <div
-                className={
-                  styles.emptyCart
-                }
-              >
-                <p>
-                  Seu carrinho está
-                  vazio.
-                </p>
-
-                <button
-                  type="button"
-                  className={
-                    styles.addButton
-                  }
-                  onClick={() =>
-                    setCartOpen(false)
-                  }
-                >
-                  Ver cardápio
-                </button>
-              </div>
-            ) : (
               <>
+
+                <div
+                  className={
+                    styles.cartHeader
+                  }
+                >
+
+                  <div>
+
+                    <span
+                      className={
+                        styles.cartEyebrow
+                      }
+                    >
+                      SEU PEDIDO
+                    </span>
+
+                    <h2 id="cart-title">
+                      Carrinho
+                    </h2>
+
+                  </div>
+
+                  <button
+                    type="button"
+                    className={
+                      styles.cartClose
+                    }
+                    onClick={() =>
+                      setCartOpen(
+                        false
+                      )
+                    }
+                    aria-label="Fechar carrinho"
+                  >
+                    ×
+                  </button>
+
+                </div>
+
                 <div
                   className={
                     styles.cartItems
                   }
                 >
+
                   {cart.map(
                     (item) => (
-                      <div
+
+                      <article
                         key={
                           item.product.id
                         }
@@ -1167,584 +2009,1048 @@ export default function CardapioClient({
                           styles.cartItem
                         }
                       >
+
+                        {item.product.image_url && (
+
+                          <div
+                            className={
+                              styles.cartItemImage
+                            }
+                          >
+                            <img
+                              src={
+                                item.product.image_url
+                              }
+                              alt=""
+                            />
+                          </div>
+
+                        )}
+
                         <div
                           className={
-                            styles.cartItemInfo
+                            styles.cartItemMain
                           }
                         >
+
                           <h3>
                             {
-                              item.product
-                                .name
+                              item.product.name
                             }
                           </h3>
 
-                          <strong>
-                            {formatPrice(
-                              item.product
-                                .price *
-                                item.quantity
-                            )}
-                          </strong>
-                        </div>
-
-                        <div
-                          className={
-                            styles.quantityControls
-                          }
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              decreaseQuantity(
-                                item.product
-                                  .id
-                              )
-                            }
-                            aria-label="Diminuir quantidade"
-                          >
-                            −
-                          </button>
-
                           <span>
-                            {
-                              item.quantity
-                            }
+                            {formatPrice(
+                              Number(
+                                item
+                                  .product
+                                  .price
+                              )
+                            )}
                           </span>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              increaseQuantity(
-                                item.product
-                                  .id
-                              )
+                          <div
+                            className={
+                              styles.cartItemControls
                             }
-                            aria-label="Aumentar quantidade"
                           >
-                            +
-                          </button>
+
+                            <div
+                              className={
+                                styles.cartQuantity
+                              }
+                            >
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  decreaseCartItem(
+                                    item
+                                      .product
+                                      .id
+                                  )
+                                }
+                                aria-label={`Diminuir ${item.product.name}`}
+                              >
+                                −
+                              </button>
+
+                              <strong>
+                                {
+                                  item.quantity
+                                }
+                              </strong>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  increaseCartItem(
+                                    item
+                                      .product
+                                      .id
+                                  )
+                                }
+                                aria-label={`Aumentar ${item.product.name}`}
+                              >
+                                +
+                              </button>
+
+                            </div>
+
+                            <button
+                              type="button"
+                              className={
+                                styles.removeItem
+                              }
+                              onClick={() =>
+                                removeCartItem(
+                                  item
+                                    .product
+                                    .id
+                                )
+                              }
+                            >
+                              Remover
+                            </button>
+
+                          </div>
+
                         </div>
 
-                        <button
-                          type="button"
+                        <strong
                           className={
-                            styles.removeButton
-                          }
-                          onClick={() =>
-                            removeFromCart(
-                              item.product
-                                .id
-                            )
+                            styles.cartItemTotal
                           }
                         >
-                          Remover
-                        </button>
-                      </div>
+                          {formatPrice(
+                            Number(
+                              item
+                                .product
+                                .price
+                            ) *
+                              item.quantity
+                          )}
+                        </strong>
+
+                      </article>
+
                     )
                   )}
+
                 </div>
 
                 <div
                   className={
-                    styles.cartSummary
+                    styles.cartFooter
                   }
                 >
-                  <span>
-                    {cartQuantity}{' '}
-                    {cartQuantity ===
-                    1
-                      ? 'item'
-                      : 'itens'}
-                  </span>
 
-                  <strong>
-                    {formatPrice(
-                      cartTotal
-                    )}
-                  </strong>
+                  <div
+                    className={
+                      styles.cartSummary
+                    }
+                  >
+
+                    <span>
+                      Total do pedido
+                    </span>
+
+                    <strong>
+                      {formatPrice(
+                        cartTotal
+                      )}
+                    </strong>
+
+                  </div>
+
+                  <button
+                    type="button"
+                    className={
+                      styles.checkoutButton
+                    }
+                    onClick={
+                      startCheckout
+                    }
+                  >
+                    <span>
+                      Continuar pedido
+                    </span>
+
+                    <strong>
+                      →
+                    </strong>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={
+                      styles.clearCartButton
+                    }
+                    onClick={
+                      clearCart
+                    }
+                  >
+                    Limpar carrinho
+                  </button>
+
                 </div>
 
-                <button
-                  type="button"
-                  className={
-                    styles.checkoutButton
-                  }
-                  onClick={
-                    startCheckout
-                  }
-                >
-                  Finalizar pedido
-                </button>
-
-                <button
-                  type="button"
-                  className={
-                    styles.secondaryButton
-                  }
-                  onClick={
-                    startQuickOrder
-                  }
-                >
-                  Pedido rápido
-                </button>
-
-                <button
-                  type="button"
-                  className={
-                    styles.linkButton
-                  }
-                  onClick={
-                    talkToSeller
-                  }
-                >
-                  Falar com o vendedor
-                </button>
               </>
+
             )}
 
+            {/* =================================================
+                WHATSAPP
+                ================================================= */}
+
             {checkoutStep ===
-              'customer' && (
+              'phone' && (
+
               <div
                 className={
-                  styles.checkoutSection
+                  styles.checkoutScreen
                 }
               >
+
                 <div
                   className={
                     styles.checkoutHeader
                   }
                 >
-                  <span>01</span>
 
-                  <h2>
-                    Seus dados
-                  </h2>
-                </div>
-
-                <label
-                  className={
-                    styles.customerField
-                  }
-                >
-                  <span>
-                    Telefone
-                  </span>
-
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    placeholder="(12) 99999-9999"
-                    value={
-                      customer.phone
-                    }
-                    onChange={(event) =>
-                      updateCustomer(
-                        'phone',
-                        formatPhone(
-                          event.target
-                            .value
-                        )
-                      )
-                    }
-                    onBlur={
-                      handlePhoneBlur
-                    }
-                  />
-
-                  {loadingCustomer && (
-                    <small>
-                      Consultando
-                      cadastro...
-                    </small>
-                  )}
-
-                  {customerFound &&
-                    !loadingCustomer && (
-                      <small>
-                        Cadastro
-                        encontrado.
-                      </small>
-                    )}
-                </label>
-
-                <label
-                  className={
-                    styles.customerField
-                  }
-                >
-                  <span>
-                    Nome
-                  </span>
-
-                  <input
-                    type="text"
-                    autoComplete="name"
-                    placeholder="Seu nome"
-                    value={
-                      customer.name
-                    }
-                    onChange={(event) =>
-                      updateCustomer(
-                        'name',
-                        event.target
-                          .value
-                      )
-                    }
-                  />
-                </label>
-
-                {deliveryMethod ===
-                  'delivery' && (
-                  <>
-                    <label
-                      className={
-                        styles.customerField
-                      }
-                    >
-                      <span>
-                        Endereço
-                      </span>
-
-                      <input
-                        type="text"
-                        autoComplete="street-address"
-                        placeholder="Rua / Avenida"
-                        value={
-                          customer.address
-                        }
-                        onChange={(event) =>
-                          updateCustomer(
-                            'address',
-                            event.target
-                              .value
-                          )
-                        }
-                      />
-                    </label>
-
-                    <div
-                      className={
-                        styles.customerFieldsRow
-                      }
-                    >
-                      <label
-                        className={
-                          styles.customerField
-                        }
-                      >
-                        <span>
-                          Número
-                        </span>
-
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="123"
-                          value={
-                            customer.number
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            updateCustomer(
-                              'number',
-                              event.target
-                                .value
-                            )
-                          }
-                        />
-                      </label>
-
-                      <label
-                        className={
-                          styles.customerField
-                        }
-                      >
-                        <span>
-                          Complemento
-                          <small>
-                            opcional
-                          </small>
-                        </span>
-
-                        <input
-                          type="text"
-                          placeholder="Apto, casa..."
-                          value={
-                            customer.complement
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            updateCustomer(
-                              'complement',
-                              event.target
-                                .value
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-
-                    <label
-                      className={
-                        styles.customerField
-                      }
-                    >
-                      <span>
-                        Bairro
-                      </span>
-
-                      <input
-                        type="text"
-                        autoComplete="address-level2"
-                        placeholder="Seu bairro"
-                        value={
-                          customer.neighborhood
-                        }
-                        onChange={(event) =>
-                          updateCustomer(
-                            'neighborhood',
-                            event.target
-                              .value
-                          )
-                        }
-                      />
-                    </label>
-
-                    <label
-                      className={
-                        styles.customerField
-                      }
-                    >
-                      <span>
-                        Referência
-                        <small>
-                          opcional
-                        </small>
-                      </span>
-
-                      <input
-                        type="text"
-                        placeholder="Perto de..."
-                        value={
-                          customer.reference
-                        }
-                        onChange={(event) =>
-                          updateCustomer(
-                            'reference',
-                            event.target
-                              .value
-                          )
-                        }
-                      />
-                    </label>
-                  </>
-                )}
-
-                <div
-                  className={
-                    styles.deliveryOptions
-                  }
-                >
                   <button
                     type="button"
                     className={
-                      deliveryMethod ===
-                      'delivery'
-                        ? styles.deliveryOptionActive
-                        : styles.deliveryOption
+                      styles.checkoutBack
                     }
+                    onClick={
+                      backToCart
+                    }
+                  >
+                    ← Voltar
+                  </button>
+
+                  <span
+                    className={
+                      styles.cartEyebrow
+                    }
+                  >
+                    FINALIZAR PEDIDO
+                  </span>
+
+                  <h2>
+                    Seu WhatsApp
+                  </h2>
+
+                  <p>
+                    Informe seu WhatsApp para
+                    encontrarmos seu cadastro.
+                  </p>
+
+                </div>
+
+                <div
+                  className={
+                    styles.customerForm
+                  }
+                >
+
+                  <label
+                    className={
+                      styles.customerField
+                    }
+                  >
+
+                    <span>
+                      WhatsApp
+                    </span>
+
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      placeholder="(12) 99999-9999"
+                      value={formatPhone(
+                        customerForm.phone
+                      )}
+                      onChange={(
+                        event
+                      ) =>
+                        updateCustomerField(
+                          'phone',
+                          normalizePhone(
+                            event
+                              .target
+                              .value
+                          )
+                        )
+                      }
+                      autoFocus
+                    />
+
+                  </label>
+
+                  {customerError && (
+
+                    <p
+                      className={
+                        styles.customerError
+                      }
+                    >
+                      {
+                        customerError
+                      }
+                    </p>
+
+                  )}
+
+                  <button
+                    type="button"
+                    className={
+                      styles.customerPrimaryButton
+                    }
+                    onClick={
+                      searchCustomer
+                    }
+                    disabled={
+                      customerLoading
+                    }
+                  >
+                    {customerLoading
+                      ? 'Consultando...'
+                      : 'Continuar →'}
+                  </button>
+
+                </div>
+
+              </div>
+
+            )}
+
+            {/* =================================================
+                CLIENTE
+                ================================================= */}
+
+            {checkoutStep ===
+              'customer' && (
+
+              <div
+                className={
+                  styles.checkoutScreen
+                }
+              >
+
+                <div
+                  className={
+                    styles.checkoutHeader
+                  }
+                >
+
+                  <button
+                    type="button"
+                    className={
+                      styles.checkoutBack
+                    }
+                    onClick={() =>
+                      setCheckoutStep(
+                        'phone'
+                      )
+                    }
+                  >
+                    ← Voltar
+                  </button>
+
+                  <span
+                    className={
+                      styles.cartEyebrow
+                    }
+                  >
+                    {customerFound
+                      ? 'CADASTRO ENCONTRADO'
+                      : 'NOVO CADASTRO'}
+                  </span>
+
+                  <h2>
+                    {customerFound
+                      ? 'Confira seus dados.'
+                      : 'Seus dados.'}
+                  </h2>
+
+                  <p>
+                    {customerFound
+                      ? 'Encontramos seu cadastro. Confira se está tudo correto.'
+                      : 'Precisamos destes dados para entregar seu pedido.'}
+                  </p>
+
+                </div>
+
+                <div
+                  className={
+                    styles.customerForm
+                  }
+                >
+
+                  <label
+                    className={
+                      styles.customerField
+                    }
+                  >
+                    <span>
+                      Nome
+                    </span>
+
+                    <input
+                      type="text"
+                      autoComplete="name"
+                      placeholder="Seu nome"
+                      value={
+                        customerForm.name
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        updateCustomerField(
+                          'name',
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label
+                    className={
+                      styles.customerField
+                    }
+                  >
+                    <span>
+                      WhatsApp
+                    </span>
+
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      value={formatPhone(
+                        customerForm.phone
+                      )}
+                      onChange={(
+                        event
+                      ) =>
+                        updateCustomerField(
+                          'phone',
+                          normalizePhone(
+                            event
+                              .target
+                              .value
+                          )
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label
+                    className={
+                      styles.customerField
+                    }
+                  >
+                    <span>
+                      Endereço
+                    </span>
+
+                    <input
+                      type="text"
+                      autoComplete="street-address"
+                      placeholder="Rua, avenida..."
+                      value={
+                        customerForm.address
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        updateCustomerField(
+                          'address',
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <div
+                    className={
+                      styles.customerFieldGrid
+                    }
+                  >
+
+                    <label
+                      className={
+                        styles.customerField
+                      }
+                    >
+                      <span>
+                        Número
+                      </span>
+
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="123"
+                        value={
+                          customerForm.number
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          updateCustomerField(
+                            'number',
+                            event.target
+                              .value
+                          )
+                        }
+                      />
+                    </label>
+
+                    <label
+                      className={
+                        styles.customerField
+                      }
+                    >
+                      <span>
+                        Complemento
+                      </span>
+
+                      <input
+                        type="text"
+                        placeholder="Apto, casa..."
+                        value={
+                          customerForm.complement
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          updateCustomerField(
+                            'complement',
+                            event.target
+                              .value
+                          )
+                        }
+                      />
+                    </label>
+
+                  </div>
+
+                  <label
+                    className={
+                      styles.customerField
+                    }
+                  >
+                    <span>
+                      Bairro
+                    </span>
+
+                    <input
+                      type="text"
+                      autoComplete="address-level2"
+                      placeholder="Seu bairro"
+                      value={
+                        customerForm.neighborhood
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        updateCustomerField(
+                          'neighborhood',
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label
+                    className={
+                      styles.customerField
+                    }
+                  >
+                    <span>
+                      Referência
+                      <small>
+                        opcional
+                      </small>
+                    </span>
+
+                    <input
+                      type="text"
+                      placeholder="Perto de..."
+                      value={
+                        customerForm.reference
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        updateCustomerField(
+                          'reference',
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </label>
+
+                  {customerError && (
+
+                    <p
+                      className={
+                        styles.customerError
+                      }
+                    >
+                      {
+                        customerError
+                      }
+                    </p>
+
+                  )}
+
+                  <button
+                    type="button"
+                    className={
+                      styles.customerPrimaryButton
+                    }
+                    onClick={
+                      saveCustomer
+                    }
+                    disabled={
+                      customerSaving
+                    }
+                  >
+                    {customerSaving
+                      ? 'Salvando...'
+                      : 'Continuar →'}
+                  </button>
+
+                </div>
+
+              </div>
+
+            )}
+
+            {/* =================================================
+                ENTREGA
+                ================================================= */}
+
+            {checkoutStep ===
+              'delivery' && (
+
+              <div
+                className={
+                  styles.checkoutScreen
+                }
+              >
+
+                <div
+                  className={
+                    styles.checkoutHeader
+                  }
+                >
+
+                  <button
+                    type="button"
+                    className={
+                      styles.checkoutBack
+                    }
+                    onClick={() =>
+                      setCheckoutStep(
+                        'customer'
+                      )
+                    }
+                  >
+                    ← Voltar
+                  </button>
+
+                  <span
+                    className={
+                      styles.cartEyebrow
+                    }
+                  >
+                    ENTREGA
+                  </span>
+
+                  <h2>
+                    Como você vai receber?
+                  </h2>
+
+                  <p>
+                    Escolha entre receber em
+                    casa ou retirar no Brasão.
+                  </p>
+
+                </div>
+
+                <div
+                  className={
+                    styles.checkoutOptions
+                  }
+                >
+
+                  <button
+                    type="button"
+                    className={`
+                      ${styles.checkoutOption}
+                      ${
+                        deliveryMethod ===
+                        'delivery'
+                          ? styles.checkoutOptionActive
+                          : ''
+                      }
+                    `}
                     onClick={() =>
                       setDeliveryMethod(
                         'delivery'
                       )
                     }
                   >
-                    <strong>
-                      Entrega
-                    </strong>
+
+                    <span
+                      className={
+                        styles.checkoutOptionIcon
+                      }
+                    >
+                      🛵
+                    </span>
 
                     <span>
-                      Receba em seu
-                      endereço
+                      <strong>
+                        Entrega
+                      </strong>
+
+                      <small>
+                        Receba no endereço
+                        cadastrado
+                      </small>
                     </span>
+
+                    <span>
+                      {deliveryMethod ===
+                      'delivery'
+                        ? '✓'
+                        : ''}
+                    </span>
+
                   </button>
 
                   <button
                     type="button"
-                    className={
-                      deliveryMethod ===
-                      'pickup'
-                        ? styles.deliveryOptionActive
-                        : styles.deliveryOption
-                    }
+                    className={`
+                      ${styles.checkoutOption}
+                      ${
+                        deliveryMethod ===
+                        'pickup'
+                          ? styles.checkoutOptionActive
+                          : ''
+                      }
+                    `}
                     onClick={() =>
                       setDeliveryMethod(
                         'pickup'
                       )
                     }
                   >
-                    <strong>
-                      Retirada
-                    </strong>
+
+                    <span
+                      className={
+                        styles.checkoutOptionIcon
+                      }
+                    >
+                      📍
+                    </span>
 
                     <span>
-                      Retire no
-                      Brasão Burger
+                      <strong>
+                        Retirada
+                      </strong>
+
+                      <small>
+                        Retire no Brasão Burger
+                      </small>
                     </span>
+
+                    <span>
+                      {deliveryMethod ===
+                      'pickup'
+                        ? '✓'
+                        : ''}
+                    </span>
+
                   </button>
+
                 </div>
 
-                {customerError && (
-                  <p
+                {deliveryMethod ===
+                  'delivery' && (
+
+                  <div
                     className={
-                      styles.errorMessage
+                      styles.customerSummary
                     }
                   >
-                    {
-                      customerError
-                    }
-                  </p>
+
+                    <div>
+                      <span>
+                        Entregar em
+                      </span>
+
+                      <strong>
+                        {
+                          customerForm.address
+                        },{' '}
+                        {
+                          customerForm.number
+                        }
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Bairro
+                      </span>
+
+                      <strong>
+                        {
+                          customerForm.neighborhood
+                        }
+                      </strong>
+                    </div>
+
+                  </div>
+
                 )}
 
                 <button
                   type="button"
                   className={
-                    styles.checkoutButton
-                  }
-                  disabled={
-                    savingCustomer
+                    styles.customerPrimaryButton
                   }
                   onClick={
                     continueToPayment
                   }
                 >
-                  {savingCustomer
-                    ? 'Salvando...'
-                    : 'Continuar'}
+                  Continuar →
                 </button>
 
-                <button
-                  type="button"
-                  className={
-                    styles.linkButton
-                  }
-                  onClick={
-                    backToCart
-                  }
-                >
-                  Voltar ao carrinho
-                </button>
               </div>
+
             )}
+
+            {/* =================================================
+                PAGAMENTO
+                ================================================= */}
 
             {checkoutStep ===
               'payment' && (
+
               <div
                 className={
-                  styles.checkoutSection
+                  styles.checkoutScreen
                 }
               >
+
                 <div
                   className={
                     styles.checkoutHeader
                   }
                 >
-                  <span>02</span>
+
+                  <button
+                    type="button"
+                    className={
+                      styles.checkoutBack
+                    }
+                    onClick={() =>
+                      setCheckoutStep(
+                        'delivery'
+                      )
+                    }
+                  >
+                    ← Voltar
+                  </button>
+
+                  <span
+                    className={
+                      styles.cartEyebrow
+                    }
+                  >
+                    PAGAMENTO
+                  </span>
 
                   <h2>
-                    Pagamento
+                    Como você vai pagar?
                   </h2>
+
+                  <p>
+                    Total do pedido:{' '}
+                    <strong>
+                      {formatPrice(
+                        cartTotal
+                      )}
+                    </strong>
+                  </p>
+
                 </div>
 
                 <div
                   className={
-                    styles.paymentOptions
+                    styles.checkoutOptions
                   }
                 >
+
                   <button
                     type="button"
-                    className={
-                      paymentMethod ===
-                      'pix'
-                        ? styles.paymentOptionActive
-                        : styles.paymentOption
-                    }
+                    className={`
+                      ${styles.checkoutOption}
+                      ${
+                        paymentMethod ===
+                        'pix'
+                          ? styles.checkoutOptionActive
+                          : ''
+                      }
+                    `}
                     onClick={() =>
                       setPaymentMethod(
                         'pix'
                       )
                     }
                   >
-                    <strong>
-                      Pix
-                    </strong>
+
+                    <span
+                      className={
+                        styles.checkoutOptionIcon
+                      }
+                    >
+                      ◈
+                    </span>
 
                     <span>
-                      Pagamento via
-                      Pix
+                      <strong>
+                        Pix
+                      </strong>
+
+                      <small>
+                        Pagamento via Pix
+                      </small>
                     </span>
+
+                    <span>
+                      {paymentMethod ===
+                      'pix'
+                        ? '✓'
+                        : ''}
+                    </span>
+
                   </button>
 
                   <button
                     type="button"
-                    className={
-                      paymentMethod ===
-                      'cash'
-                        ? styles.paymentOptionActive
-                        : styles.paymentOption
-                    }
+                    className={`
+                      ${styles.checkoutOption}
+                      ${
+                        paymentMethod ===
+                        'cash'
+                          ? styles.checkoutOptionActive
+                          : ''
+                      }
+                    `}
                     onClick={() =>
                       setPaymentMethod(
                         'cash'
                       )
                     }
                   >
-                    <strong>
-                      Dinheiro
-                    </strong>
+
+                    <span
+                      className={
+                        styles.checkoutOptionIcon
+                      }
+                    >
+                      R$
+                    </span>
 
                     <span>
-                      Pagamento em
-                      dinheiro
+                      <strong>
+                        Dinheiro
+                      </strong>
+
+                      <small>
+                        Pague na entrega ou
+                        retirada
+                      </small>
                     </span>
+
+                    <span>
+                      {paymentMethod ===
+                      'cash'
+                        ? '✓'
+                        : ''}
+                    </span>
+
                   </button>
 
                   <button
                     type="button"
-                    className={
-                      paymentMethod ===
-                      'card'
-                        ? styles.paymentOptionActive
-                        : styles.paymentOption
-                    }
+                    className={`
+                      ${styles.checkoutOption}
+                      ${
+                        paymentMethod ===
+                        'card'
+                          ? styles.checkoutOptionActive
+                          : ''
+                      }
+                    `}
                     onClick={() =>
                       setPaymentMethod(
                         'card'
                       )
                     }
                   >
-                    <strong>
-                      Cartão
-                    </strong>
+
+                    <span
+                      className={
+                        styles.checkoutOptionIcon
+                      }
+                    >
+                      ▣
+                    </span>
 
                     <span>
-                      Crédito ou
-                      débito
+                      <strong>
+                        Cartão
+                      </strong>
+
+                      <small>
+                        Crédito ou débito
+                      </small>
                     </span>
+
+                    <span>
+                      {paymentMethod ===
+                      'card'
+                        ? '✓'
+                        : ''}
+                    </span>
+
                   </button>
+
                 </div>
 
                 {paymentMethod ===
                   'cash' && (
+
                   <label
                     className={
                       styles.customerField
                     }
                   >
+
                     <span>
                       Troco para
                       <small>
@@ -1754,13 +3060,15 @@ export default function CardapioClient({
 
                     <input
                       type="text"
-                      inputMode="decimal"
+                      inputMode="numeric"
                       autoComplete="off"
                       placeholder="Ex.: 100,00"
                       value={
                         changeFor
                       }
-                      onChange={(event) =>
+                      onChange={(
+                        event
+                      ) =>
                         setChangeFor(
                           formatChange(
                             event.target
@@ -1770,98 +3078,141 @@ export default function CardapioClient({
                       }
                     />
 
-                    <small>
-                      Pedido:{' '}
-                      {formatPrice(
-                        cartTotal
-                      )}
-                    </small>
                   </label>
+
                 )}
 
                 {customerError && (
+
                   <p
                     className={
-                      styles.errorMessage
+                      styles.customerError
                     }
                   >
                     {
                       customerError
                     }
                   </p>
+
                 )}
 
                 <button
                   type="button"
                   className={
-                    styles.checkoutButton
+                    styles.customerPrimaryButton
                   }
                   onClick={
                     continueToConfirmation
                   }
                 >
-                  Revisar pedido
+                  Revisar pedido →
                 </button>
 
-                <button
-                  type="button"
-                  className={
-                    styles.linkButton
-                  }
-                  onClick={
-                    backToCustomer
-                  }
-                >
-                  Voltar aos dados
-                </button>
               </div>
+
             )}
+
+            {/* =================================================
+                CONFIRMAÇÃO
+                ================================================= */}
 
             {checkoutStep ===
               'confirmed' && (
+
               <div
                 className={
-                  styles.checkoutSection
+                  styles.checkoutScreen
                 }
               >
+
                 <div
                   className={
-                    styles.checkoutHeader
+                    styles.checkoutSuccess
                   }
                 >
-                  <span>03</span>
+
+                  <span
+                    className={
+                      styles.checkoutSuccessMark
+                    }
+                  >
+                    ✓
+                  </span>
+
+                  <span
+                    className={
+                      styles.cartEyebrow
+                    }
+                  >
+                    PEDIDO PRONTO
+                  </span>
 
                   <h2>
-                    Confirmar pedido
+                    Confira tudo.
                   </h2>
+
+                  <p>
+                    Revise os dados antes de
+                    enviar seu pedido para o
+                    Brasão Burger.
+                  </p>
+
                 </div>
 
                 <div
                   className={
-                    styles.confirmationSummary
+                    styles.customerSummary
                   }
                 >
+
                   <div>
                     <span>
-                      Itens
+                      Cliente
                     </span>
 
                     <strong>
-                      {cartQuantity}
+                      {
+                        customerForm.name
+                      }
                     </strong>
                   </div>
 
                   <div>
                     <span>
-                      Total
+                      Recebimento
                     </span>
 
                     <strong>
-                      {formatPrice(
-                        cartTotal
-                      )}
+                      {deliveryMethod ===
+                      'delivery'
+                        ? 'Entrega'
+                        : 'Retirada no local'}
                     </strong>
                   </div>
+
+                  {deliveryMethod ===
+                    'delivery' && (
+
+                    <div>
+                      <span>
+                        Endereço
+                      </span>
+
+                      <strong>
+                        {
+                          customerForm.address
+                        },{' '}
+                        {
+                          customerForm.number
+                        }{' '}
+                        —{' '}
+                        {
+                          customerForm.neighborhood
+                        }
+                      </strong>
+                    </div>
+
+                  )}
 
                   <div>
                     <span>
@@ -1869,61 +3220,128 @@ export default function CardapioClient({
                     </span>
 
                     <strong>
-                      {
-                        formatPaymentMethod()
-                      }
+                      {paymentMethod ===
+                        'pix' &&
+                        'Pix'}
+
+                      {paymentMethod ===
+                        'cash' &&
+                        'Dinheiro'}
+
+                      {paymentMethod ===
+                        'card' &&
+                        'Cartão'}
                     </strong>
                   </div>
 
-                  <div>
-                    <span>
-                      Modalidade
-                    </span>
+                  {paymentMethod ===
+                    'cash' &&
+                    changeFor.trim() && (
 
-                    <strong>
-                      {
-                        formatDeliveryMethod()
-                      }
-                    </strong>
-                  </div>
-
-                  {deliveryMethod ===
-                    'delivery' && (
                     <div>
                       <span>
-                        Entrega
+                        Troco para
                       </span>
 
                       <strong>
-                        {
-                          customer.address
-                        }
-                        ,{' '}
-                        {
-                          customer.number
-                        }
+                        R$ {changeFor}
                       </strong>
                     </div>
+
                   )}
+
+                  <div>
+                    <span>
+                      Total do pedido
+                    </span>
+
+                    <strong>
+                      {formatPrice(
+                        cartTotal
+                      )}
+                    </strong>
+                  </div>
+
                 </div>
+
+                <div
+                  className={
+                    styles.orderPreview
+                  }
+                >
+
+                  <span>
+                    ITENS
+                  </span>
+
+                  {cart.map(
+                    (item) => (
+
+                      <div
+                        key={
+                          item.product.id
+                        }
+                      >
+
+                        <span>
+                          {
+                            item.quantity
+                          }x{' '}
+                          {
+                            item
+                              .product
+                              .name
+                          }
+                        </span>
+
+                        <strong>
+                          {formatPrice(
+                            Number(
+                              item
+                                .product
+                                .price
+                            ) *
+                              item.quantity
+                          )}
+                        </strong>
+
+                      </div>
+
+                    )
+                  )}
+
+                </div>
+
+                {customerError && (
+
+                  <p
+                    className={
+                      styles.customerError
+                    }
+                  >
+                    {
+                      customerError
+                    }
+                  </p>
+
+                )}
 
                 <button
                   type="button"
                   className={
-                    styles.checkoutButton
+                    styles.customerPrimaryButton
                   }
                   onClick={
                     sendOrderToWhatsApp
                   }
                 >
-                  Enviar pedido pelo
-                  WhatsApp
+                  Enviar pedido pelo WhatsApp →
                 </button>
 
                 <button
                   type="button"
                   className={
-                    styles.linkButton
+                    styles.checkoutSecondaryButton
                   }
                   onClick={() =>
                     setCheckoutStep(
@@ -1931,41 +3349,19 @@ export default function CardapioClient({
                     )
                   }
                 >
-                  Voltar ao pagamento
+                  Voltar e editar
                 </button>
+
               </div>
+
             )}
+
           </aside>
+
         </div>
+
       )}
 
-      {!cartOpen &&
-        cart.length > 0 && (
-          <button
-            type="button"
-            className={
-              styles.floatingCart
-            }
-            onClick={() =>
-              setCartOpen(true)
-            }
-            aria-label="Abrir carrinho"
-          >
-            <span>
-              {cartQuantity}
-            </span>
-
-            <strong>
-              Ver pedido
-            </strong>
-
-            <b>
-              {formatPrice(
-                cartTotal
-              )}
-            </b>
-          </button>
-        )}
     </main>
   )
 }
