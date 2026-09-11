@@ -39,18 +39,7 @@ export function BioHero() {
       className={styles.heroSection}
       aria-labelledby="brasao-hero-title"
     >
-      {/* FOTO DE FUNDO */}
-      <div className={styles.heroBackground} aria-hidden="true">
-        <Image
-          src="/images/brasao-fachada.jpg"
-          alt=""
-          fill
-          priority
-          quality={90}
-          sizes="100vw"
-          className={styles.backgroundImage}
-        />
-      </div>
+     {/*D/*}
 
       <div className={styles.backgroundOverlay} aria-hidden="true" />
 
