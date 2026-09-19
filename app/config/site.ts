@@ -116,6 +116,10 @@ export const SITE_CONFIG = {
   // PAGAMENTOS
   // -------------------------------------------------------
   payment: {
+    pixKey: undefined,
+
+    pixKeyType: undefined,
+
     accepted: [
       {
         id: 'pix',
