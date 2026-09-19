@@ -1,4 +1,3 @@
-
 'use client'
 
 import {
@@ -72,6 +71,114 @@ type CheckoutStep =
   | 'delivery'
   | 'payment'
   | 'confirmed'
+
+/*
+ * =========================================================
+ * ETAPAS DO CHECKOUT (PARA O INDICADOR DE PROGRESSO)
+ * =========================================================
+ *
+ * 'cart' e 'confirmed' não entram aqui: a primeira é o
+ * carrinho (ainda não é checkout) e a segunda é a tela
+ * de sucesso (não faz sentido mostrar "etapa 5 de 4").
+ */
+
+const CHECKOUT_FLOW_STEPS: CheckoutStep[] = [
+  'phone',
+  'delivery',
+  'customer',
+  'payment',
+]
+
+/*
+ * =========================================================
+ * STATUS DO HORÁRIO DE HOJE
+ * =========================================================
+ *
+ * Calculada no cliente (não no servidor) para evitar
+ * inconsistência de fuso horário entre o servidor e o
+ * navegador da pessoa. É chamada dentro de um useEffect,
+ * então só roda depois que a página já carregou.
+ */
+
+const WEEKDAY_KEYS = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const
+
+type HoursStatus = {
+  isOpen: boolean
+  label: string
+}
+
+function getTodayHoursStatus(): HoursStatus {
+  const now = new Date()
+
+  const dayKey =
+    WEEKDAY_KEYS[now.getDay()]
+
+  const today =
+    SITE_CONFIG.openingHours[dayKey]
+
+  if (
+    !today ||
+    today.closed ||
+    !today.open ||
+    !today.close
+  ) {
+    return {
+      isOpen: false,
+      label: 'Fechado hoje',
+    }
+  }
+
+  const [openHour, openMinute] =
+    today.open
+      .split(':')
+      .map(Number)
+
+  const [closeHour, closeMinute] =
+    today.close
+      .split(':')
+      .map(Number)
+
+  const nowMinutes =
+    now.getHours() * 60 +
+    now.getMinutes()
+
+  const openMinutes =
+    openHour * 60 + openMinute
+
+  const closeMinutes =
+    closeHour * 60 + closeMinute
+
+  const isOpen =
+    nowMinutes >= openMinutes &&
+    nowMinutes < closeMinutes
+
+  if (isOpen) {
+    return {
+      isOpen: true,
+      label: `Aberto agora · fecha às ${today.close}`,
+    }
+  }
+
+  if (nowMinutes < openMinutes) {
+    return {
+      isOpen: false,
+      label: `Fechado agora · abre às ${today.open}`,
+    }
+  }
+
+  return {
+    isOpen: false,
+    label: 'Fechado agora',
+  }
+}
 
 type Props = {
   categories: Category[]
@@ -240,6 +347,19 @@ export default function CardapioClient({
   const [customerFound, setCustomerFound] =
     useState(false)
 
+  /*
+   * Quando um cliente cadastrado é encontrado,
+   * mostramos primeiro um resumo condensado dos
+   * dados dele (em vez do formulário inteiro).
+   *
+   * Esse state controla isso:
+   * - false → mostra o resumo condensado
+   * - true  → mostra o formulário completo
+   *          (cliente novo, ou pediu para editar)
+   */
+  const [showCustomerForm, setShowCustomerForm] =
+    useState(false)
+
   const [customerLoading, setCustomerLoading] =
     useState(false)
 
@@ -263,6 +383,31 @@ export default function CardapioClient({
 
   const [changeFor, setChangeFor] =
     useState('')
+
+  /*
+   * Feedback visual (troca o texto do botão
+   * para "Copiado!" por alguns segundos).
+   */
+  const [pixKeyCopied, setPixKeyCopied] =
+    useState(false)
+
+  /*
+   * Status do horário de hoje ("aberto agora" /
+   * "fechado agora"), exibido na barra de confiança
+   * do cardápio. Começa null e só é preenchido depois
+   * de montar no navegador, para não gerar diferença
+   * entre o HTML do servidor e o do cliente.
+   */
+  const [hoursStatus, setHoursStatus] =
+    useState<HoursStatus | null>(
+      null
+    )
+
+  useEffect(() => {
+    setHoursStatus(
+      getTodayHoursStatus()
+    )
+  }, [])
 
   /*
    * =========================================================
@@ -379,6 +524,38 @@ export default function CardapioClient({
         .replace(/\./g, '')
         .replace(',', '.')
     )
+  }
+
+  /*
+   * =========================================================
+   * PIX — COPIAR CHAVE
+   * =========================================================
+   */
+
+  async function copyPixKey() {
+    const pixKey =
+      SITE_CONFIG.payment.pixKey
+
+    if (!pixKey) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        pixKey
+      )
+
+      setPixKeyCopied(true)
+
+      setTimeout(() => {
+        setPixKeyCopied(false)
+      }, 2500)
+    } catch (error) {
+      console.error(
+        'Erro ao copiar a chave Pix:',
+        error
+      )
+    }
   }
 
   /*
@@ -541,6 +718,8 @@ export default function CardapioClient({
 
     setCustomerFound(false)
 
+    setShowCustomerForm(false)
+
     setCustomerError('')
 
     setCustomerForm({
@@ -647,6 +826,7 @@ export default function CardapioClient({
 
     setCustomerError('')
     setCustomerFound(false)
+    setShowCustomerForm(false)
     setCheckoutStep('phone')
   }
 
@@ -729,6 +909,7 @@ export default function CardapioClient({
         })
 
         setCustomerFound(true)
+        setShowCustomerForm(false)
       } else {
         setCustomerForm(
           (current) => ({
@@ -738,9 +919,10 @@ export default function CardapioClient({
         )
 
         setCustomerFound(false)
+        setShowCustomerForm(true)
       }
 
-      setCheckoutStep('customer')
+      setCheckoutStep('delivery')
     } catch (error) {
       console.error(
         'Erro ao buscar cliente:',
@@ -769,11 +951,21 @@ export default function CardapioClient({
         customerForm.phone
       )
 
+    /*
+     * Endereço só é obrigatório quando o
+     * cliente escolheu ENTREGA. Para
+     * RETIRADA, pulamos essas validações.
+     */
+    const requiresAddress =
+      deliveryMethod === 'delivery'
+
     const payload = {
       name:
         customerForm.name.trim(),
 
       phone,
+
+      deliveryMethod,
 
       address:
         customerForm.address.trim(),
@@ -807,28 +999,30 @@ export default function CardapioClient({
       return
     }
 
-    if (!payload.address) {
-      setCustomerError(
-        'Digite seu endereço.'
-      )
+    if (requiresAddress) {
+      if (!payload.address) {
+        setCustomerError(
+          'Digite seu endereço.'
+        )
 
-      return
-    }
+        return
+      }
 
-    if (!payload.number) {
-      setCustomerError(
-        'Digite o número do endereço.'
-      )
+      if (!payload.number) {
+        setCustomerError(
+          'Digite o número do endereço.'
+        )
 
-      return
-    }
+        return
+      }
 
-    if (!payload.neighborhood) {
-      setCustomerError(
-        'Digite seu bairro.'
-      )
+      if (!payload.neighborhood) {
+        setCustomerError(
+          'Digite seu bairro.'
+        )
 
-      return
+        return
+      }
     }
 
     setCustomerSaving(true)
@@ -893,7 +1087,12 @@ export default function CardapioClient({
         })
       }
 
-      setCheckoutStep('delivery')
+      /*
+       * A escolha de entrega/retirada já
+       * aconteceu na etapa anterior — daqui
+       * vamos direto para o pagamento.
+       */
+      setCheckoutStep('payment')
     } catch (error) {
       console.error(
         'Erro ao salvar cliente:',
@@ -912,34 +1111,17 @@ export default function CardapioClient({
 
   /*
    * =========================================================
-   * ENTREGA
+   * ENTREGA — CONTINUAR PARA OS DADOS DO CLIENTE
    * =========================================================
+   *
+   * A escolha de entrega/retirada em si não tem
+   * validação (sempre existe um valor padrão), então
+   * essa função só avança para a próxima etapa.
    */
 
-  function continueToPayment() {
-    if (
-      deliveryMethod ===
-      'delivery'
-    ) {
-      if (
-        !customerForm.address.trim() ||
-        !customerForm.number.trim() ||
-        !customerForm.neighborhood.trim()
-      ) {
-        setCustomerError(
-          'Seu endereço está incompleto.'
-        )
-
-        setCheckoutStep(
-          'customer'
-        )
-
-        return
-      }
-    }
-
+  function continueFromDelivery() {
     setCustomerError('')
-    setCheckoutStep('payment')
+    setCheckoutStep('customer')
   }
 
   /*
@@ -1075,6 +1257,14 @@ export default function CardapioClient({
       lines.push(
         'Forma: Pix'
       )
+
+      if (
+        SITE_CONFIG.payment.pixKey
+      ) {
+        lines.push(
+          `Chave Pix: ${SITE_CONFIG.payment.pixKey}`
+        )
+      }
     }
 
     if (
@@ -1252,6 +1442,21 @@ export default function CardapioClient({
 
   /*
    * =========================================================
+   * PROGRESSO DO CHECKOUT
+   * =========================================================
+   *
+   * -1 quando a etapa atual não faz parte do fluxo de
+   * checkout (ex: 'cart' ou 'confirmed') — nesse caso o
+   * indicador de progresso não é exibido.
+   */
+
+  const checkoutStepIndex =
+    CHECKOUT_FLOW_STEPS.indexOf(
+      checkoutStep
+    )
+
+  /*
+   * =========================================================
    * RENDER
    * =========================================================
    */
@@ -1325,6 +1530,74 @@ export default function CardapioClient({
             Escolha seu pedido e aproveite
             o sabor do Brasão.
           </p>
+
+        </div>
+
+        {/* =================================================
+            BARRA DE CONFIANÇA
+            =================================================
+
+            Repete, dentro do próprio cardápio, as
+            informações que hoje só existem na home:
+            horário de funcionamento, contato e formas
+            de pagamento aceitas.
+            ================================================= */}
+
+        <div
+          className={
+            styles.trustBar
+          }
+        >
+
+          <span
+            className={`
+              ${styles.trustBarItem}
+              ${
+                hoursStatus?.isOpen
+                  ? styles.trustBarOpen
+                  : ''
+              }
+            `}
+          >
+            <span
+              className={
+                styles.trustBarDot
+              }
+              aria-hidden="true"
+            />
+            {hoursStatus
+              ? hoursStatus.label
+              : 'Confira nosso horário'}
+          </span>
+
+          <a
+            href={`https://wa.me/${SITE_CONFIG.whatsapp.number}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={
+              styles.trustBarItem
+            }
+          >
+            {formatPhone(
+              SITE_CONFIG.whatsapp.number.replace(
+                /^55/,
+                ''
+              )
+            )}
+          </a>
+
+          <span
+            className={
+              styles.trustBarItem
+            }
+          >
+            {SITE_CONFIG.payment.accepted
+              .map(
+                (method) =>
+                  method.label
+              )
+              .join(' · ')}
+          </span>
 
         </div>
 
@@ -1945,6 +2218,99 @@ export default function CardapioClient({
           >
 
             {/* =================================================
+                PROGRESSO DO CHECKOUT
+                =================================================
+
+                Visível somente durante as etapas de
+                checkout (telefone, dados, entrega,
+                pagamento). Não aparece no carrinho
+                nem na tela de confirmação.
+                ================================================= */}
+
+            {checkoutStepIndex !==
+              -1 && (
+
+              <div
+                className={
+                  styles.checkoutProgress
+                }
+              >
+
+                <div
+                  className={
+                    styles.checkoutProgressBar
+                  }
+                >
+
+                  <span
+                    className={
+                      styles.checkoutProgressLabel
+                    }
+                  >
+                    Etapa{' '}
+                    {checkoutStepIndex +
+                      1}{' '}
+                    de{' '}
+                    {
+                      CHECKOUT_FLOW_STEPS.length
+                    }
+                  </span>
+
+                  <div
+                    className={
+                      styles.checkoutProgressTrack
+                    }
+                    role="progressbar"
+                    aria-valuenow={
+                      checkoutStepIndex +
+                      1
+                    }
+                    aria-valuemin={1}
+                    aria-valuemax={
+                      CHECKOUT_FLOW_STEPS.length
+                    }
+                  >
+                    <div
+                      className={
+                        styles.checkoutProgressFill
+                      }
+                      style={{
+                        width: `${
+                          ((checkoutStepIndex +
+                            1) /
+                            CHECKOUT_FLOW_STEPS.length) *
+                          100
+                        }%`,
+                      }}
+                    />
+                  </div>
+
+                </div>
+
+                <div
+                  className={
+                    styles.checkoutProgressSummary
+                  }
+                >
+                  <span>
+                    {cartQuantity}{' '}
+                    {cartQuantity === 1
+                      ? 'item'
+                      : 'itens'}
+                  </span>
+
+                  <strong>
+                    {formatPrice(
+                      cartTotal
+                    )}
+                  </strong>
+                </div>
+
+              </div>
+
+            )}
+
+            {/* =================================================
                 CARRINHO
                 ================================================= */}
 
@@ -2144,6 +2510,29 @@ export default function CardapioClient({
                     styles.cartFooter
                   }
                 >
+
+                  <div
+                    className={
+                      styles.paymentMethodsPreview
+                    }
+                  >
+                    <span>
+                      Formas de pagamento:
+                    </span>
+
+                    <strong>
+                      {SITE_CONFIG.payment.accepted
+                        .map(
+                          (
+                            method
+                          ) =>
+                            method.label
+                        )
+                        .join(
+                          ' · '
+                        )}
+                    </strong>
+                  </div>
 
                   <div
                     className={
@@ -2353,7 +2742,7 @@ export default function CardapioClient({
                     }
                     onClick={() =>
                       setCheckoutStep(
-                        'phone'
+                        'delivery'
                       )
                     }
                   >
@@ -2377,12 +2766,197 @@ export default function CardapioClient({
                   </h2>
 
                   <p>
-                    {customerFound
-                      ? 'Encontramos seu cadastro. Confira se está tudo correto.'
-                      : 'Precisamos destes dados para entregar seu pedido.'}
+                    {deliveryMethod ===
+                    'pickup'
+                      ? 'Precisamos apenas do seu nome e WhatsApp para confirmar a retirada.'
+                      : customerFound
+                        ? 'Encontramos seu cadastro. Confira se está tudo correto.'
+                        : 'Precisamos destes dados para entregar seu pedido.'}
                   </p>
 
                 </div>
+
+                {/* =============================================
+                    RESUMO CONDENSADO
+                    =============================================
+
+                    Mostrado quando encontramos um cliente
+                    já cadastrado, para não obrigar a
+                    reescrever todos os dados de novo.
+                    ============================================= */}
+
+                {customerFound &&
+                  !showCustomerForm && (
+
+                  <div
+                    className={
+                      styles.customerConfirmSummary
+                    }
+                  >
+
+                    <div
+                      className={
+                        styles.customerConfirmSummaryList
+                      }
+                    >
+
+                      <div
+                        className={
+                          styles.customerConfirmSummaryRow
+                        }
+                      >
+                        <span>
+                          Nome
+                        </span>
+                        <strong>
+                          {
+                            customerForm.name
+                          }
+                        </strong>
+                      </div>
+
+                      <div
+                        className={
+                          styles.customerConfirmSummaryRow
+                        }
+                      >
+                        <span>
+                          WhatsApp
+                        </span>
+                        <strong>
+                          {formatPhone(
+                            customerForm.phone
+                          )}
+                        </strong>
+                      </div>
+
+                      {deliveryMethod ===
+                        'delivery' && (
+
+                        <>
+
+                          <div
+                            className={
+                              styles.customerConfirmSummaryRow
+                            }
+                          >
+                            <span>
+                              Endereço
+                            </span>
+                            <strong>
+                              {
+                                customerForm.address
+                              }
+                              ,{' '}
+                              {
+                                customerForm.number
+                              }
+                              {customerForm.complement
+                                ? ` — ${customerForm.complement}`
+                                : ''}
+                            </strong>
+                          </div>
+
+                          <div
+                            className={
+                              styles.customerConfirmSummaryRow
+                            }
+                          >
+                            <span>
+                              Bairro
+                            </span>
+                            <strong>
+                              {
+                                customerForm.neighborhood
+                              }
+                            </strong>
+                          </div>
+
+                          {customerForm.reference.trim() && (
+
+                            <div
+                              className={
+                                styles.customerConfirmSummaryRow
+                              }
+                            >
+                              <span>
+                                Referência
+                              </span>
+                              <strong>
+                                {
+                                  customerForm.reference
+                                }
+                              </strong>
+                            </div>
+
+                          )}
+
+                        </>
+
+                      )}
+
+                    </div>
+
+                    {customerError && (
+
+                      <p
+                        className={
+                          styles.customerError
+                        }
+                      >
+                        {
+                          customerError
+                        }
+                      </p>
+
+                    )}
+
+                    <button
+                      type="button"
+                      className={
+                        styles.customerPrimaryButton
+                      }
+                      onClick={
+                        saveCustomer
+                      }
+                      disabled={
+                        customerSaving
+                      }
+                    >
+                      {customerSaving
+                        ? 'Salvando...'
+                        : 'Confirmar dados →'}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={
+                        styles.customerEditButton
+                      }
+                      onClick={() =>
+                        setShowCustomerForm(
+                          true
+                        )
+                      }
+                    >
+                      Editar dados
+                    </button>
+
+                  </div>
+
+                )}
+
+                {/* =============================================
+                    FORMULÁRIO COMPLETO
+                    =============================================
+
+                    Mostrado para clientes novos, ou quando
+                    um cliente cadastrado pede para editar
+                    os dados encontrados.
+                    ============================================= */}
+
+                {(!customerFound ||
+                  showCustomerForm) && (
 
                 <div
                   className={
@@ -2449,154 +3023,163 @@ export default function CardapioClient({
                     />
                   </label>
 
-                  <label
-                    className={
-                      styles.customerField
-                    }
-                  >
-                    <span>
-                      Endereço
-                    </span>
+                  {deliveryMethod ===
+                    'delivery' && (
 
-                    <input
-                      type="text"
-                      autoComplete="street-address"
-                      placeholder="Rua, avenida..."
-                      value={
-                        customerForm.address
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateCustomerField(
-                          'address',
-                          event.target
-                            .value
-                        )
-                      }
-                    />
-                  </label>
+                    <>
 
-                  <div
-                    className={
-                      styles.customerFieldGrid
-                    }
-                  >
-
-                    <label
-                      className={
-                        styles.customerField
-                      }
-                    >
-                      <span>
-                        Número
-                      </span>
-
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="123"
-                        value={
-                          customerForm.number
+                      <label
+                        className={
+                          styles.customerField
                         }
-                        onChange={(
-                          event
-                        ) =>
-                          updateCustomerField(
-                            'number',
-                            event.target
-                              .value
-                          )
+                      >
+                        <span>
+                          Endereço
+                        </span>
+
+                        <input
+                          type="text"
+                          autoComplete="street-address"
+                          placeholder="Rua, avenida..."
+                          value={
+                            customerForm.address
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateCustomerField(
+                              'address',
+                              event.target
+                                .value
+                            )
+                          }
+                        />
+                      </label>
+
+                      <div
+                        className={
+                          styles.customerFieldGrid
                         }
-                      />
-                    </label>
+                      >
 
-                    <label
-                      className={
-                        styles.customerField
-                      }
-                    >
-                      <span>
-                        Complemento
-                      </span>
+                        <label
+                          className={
+                            styles.customerField
+                          }
+                        >
+                          <span>
+                            Número
+                          </span>
 
-                      <input
-                        type="text"
-                        placeholder="Apto, casa..."
-                        value={
-                          customerForm.complement
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="123"
+                            value={
+                              customerForm.number
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              updateCustomerField(
+                                'number',
+                                event.target
+                                  .value
+                              )
+                            }
+                          />
+                        </label>
+
+                        <label
+                          className={
+                            styles.customerField
+                          }
+                        >
+                          <span>
+                            Complemento
+                          </span>
+
+                          <input
+                            type="text"
+                            placeholder="Apto, casa..."
+                            value={
+                              customerForm.complement
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              updateCustomerField(
+                                'complement',
+                                event.target
+                                  .value
+                              )
+                            }
+                          />
+                        </label>
+
+                      </div>
+
+                      <label
+                        className={
+                          styles.customerField
                         }
-                        onChange={(
-                          event
-                        ) =>
-                          updateCustomerField(
-                            'complement',
-                            event.target
-                              .value
-                          )
+                      >
+                        <span>
+                          Bairro
+                        </span>
+
+                        <input
+                          type="text"
+                          autoComplete="address-level2"
+                          placeholder="Seu bairro"
+                          value={
+                            customerForm.neighborhood
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateCustomerField(
+                              'neighborhood',
+                              event.target
+                                .value
+                            )
+                          }
+                        />
+                      </label>
+
+                      <label
+                        className={
+                          styles.customerField
                         }
-                      />
-                    </label>
+                      >
+                        <span>
+                          Referência
+                          <small>
+                            opcional
+                          </small>
+                        </span>
 
-                  </div>
+                        <input
+                          type="text"
+                          placeholder="Perto de..."
+                          value={
+                            customerForm.reference
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateCustomerField(
+                              'reference',
+                              event.target
+                                .value
+                            )
+                          }
+                        />
+                      </label>
 
-                  <label
-                    className={
-                      styles.customerField
-                    }
-                  >
-                    <span>
-                      Bairro
-                    </span>
+                    </>
 
-                    <input
-                      type="text"
-                      autoComplete="address-level2"
-                      placeholder="Seu bairro"
-                      value={
-                        customerForm.neighborhood
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateCustomerField(
-                          'neighborhood',
-                          event.target
-                            .value
-                        )
-                      }
-                    />
-                  </label>
-
-                  <label
-                    className={
-                      styles.customerField
-                    }
-                  >
-                    <span>
-                      Referência
-                      <small>
-                        opcional
-                      </small>
-                    </span>
-
-                    <input
-                      type="text"
-                      placeholder="Perto de..."
-                      value={
-                        customerForm.reference
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateCustomerField(
-                          'reference',
-                          event.target
-                            .value
-                        )
-                      }
-                    />
-                  </label>
+                  )}
 
                   {customerError && (
 
@@ -2631,6 +3214,8 @@ export default function CardapioClient({
 
                 </div>
 
+                )}
+
               </div>
 
             )}
@@ -2661,7 +3246,7 @@ export default function CardapioClient({
                     }
                     onClick={() =>
                       setCheckoutStep(
-                        'customer'
+                        'phone'
                       )
                     }
                   >
@@ -2787,7 +3372,8 @@ export default function CardapioClient({
                 </div>
 
                 {deliveryMethod ===
-                  'delivery' && (
+                  'delivery' &&
+                  customerForm.address.trim() && (
 
                   <div
                     className={
@@ -2797,7 +3383,7 @@ export default function CardapioClient({
 
                     <div>
                       <span>
-                        Entregar em
+                        Endereço em seu cadastro
                       </span>
 
                       <strong>
@@ -2832,7 +3418,7 @@ export default function CardapioClient({
                     styles.customerPrimaryButton
                   }
                   onClick={
-                    continueToPayment
+                    continueFromDelivery
                   }
                 >
                   Continuar →
@@ -2868,7 +3454,7 @@ export default function CardapioClient({
                     }
                     onClick={() =>
                       setCheckoutStep(
-                        'delivery'
+                        'customer'
                       )
                     }
                   >
@@ -3041,6 +3627,83 @@ export default function CardapioClient({
                   </button>
 
                 </div>
+
+                {paymentMethod ===
+                  'pix' && (
+
+                  <div
+                    className={
+                      styles.pixKeyBox
+                    }
+                  >
+
+                    {SITE_CONFIG.payment
+                      .pixKey ? (
+
+                      <>
+
+                        <span
+                          className={
+                            styles.pixKeyLabel
+                          }
+                        >
+                          Chave Pix
+                          {SITE_CONFIG
+                            .payment
+                            .pixKeyType
+                            ? ` (${SITE_CONFIG.payment.pixKeyType})`
+                            : ''}
+                        </span>
+
+                        <div
+                          className={
+                            styles.pixKeyRow
+                          }
+                        >
+                          <strong>
+                            {
+                              SITE_CONFIG
+                                .payment
+                                .pixKey
+                            }
+                          </strong>
+
+                          <button
+                            type="button"
+                            className={
+                              styles.pixCopyButton
+                            }
+                            onClick={
+                              copyPixKey
+                            }
+                          >
+                            {pixKeyCopied
+                              ? 'Copiado!'
+                              : 'Copiar'}
+                          </button>
+                        </div>
+
+                      </>
+
+                    ) : (
+
+                      <span
+                        className={
+                          styles.pixKeyLabel
+                        }
+                      >
+                        A chave Pix será
+                        enviada pelo Brasão
+                        Burger assim que o
+                        pedido for confirmado
+                        no WhatsApp.
+                      </span>
+
+                    )}
+
+                  </div>
+
+                )}
 
                 {paymentMethod ===
                   'cash' && (

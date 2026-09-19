@@ -4,25 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 
 import styles from './Gallery.module.css'
-
-type Category = {
-  id: number
-  name: string
-  slug: string
-  sort_order: number
-}
-
-type Product = {
-  id: number
-  category_id: number
-  name: string
-  description: string | null
-  price: number
-  image_url: string | null
-  featured: boolean
-  available: boolean
-  sort_order: number
-}
+import type { Category, Product } from '@/app/types/menu'
 
 type Props = {
   categories?: Category[]

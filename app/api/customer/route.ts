@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -46,6 +45,7 @@ const supabaseAdmin = createClient(
 type CustomerInput = {
   name: string
   phone: string
+  deliveryMethod: 'delivery' | 'pickup'
   address: string
   number: string
   complement?: string
@@ -82,6 +82,23 @@ function normalizePhone(phone: string): string {
 }
 
 /**
+ * Normaliza a forma de entrega recebida no body.
+ *
+ * Qualquer valor ausente ou inesperado cai em
+ * 'delivery' — o padrão mais seguro, já que exige
+ * endereço (mantém a validação antiga como
+ * comportamento padrão para chamadas que não
+ * informarem este campo).
+ */
+function normalizeDeliveryMethod(
+  value: unknown
+): 'delivery' | 'pickup' {
+  return value === 'pickup'
+    ? 'pickup'
+    : 'delivery'
+}
+
+/**
  * Monta os dados que serão enviados ao Supabase.
  */
 function buildCustomer(
@@ -93,6 +110,11 @@ function buildCustomer(
     phone: normalizePhone(
       clean(body.phone)
     ),
+
+    deliveryMethod:
+      normalizeDeliveryMethod(
+        body.deliveryMethod
+      ),
 
     address: clean(body.address),
 
@@ -127,16 +149,26 @@ function validateCustomer(
     return 'WhatsApp inválido.'
   }
 
-  if (!customer.address) {
-    return 'Endereço é obrigatório.'
-  }
+  /*
+   * Endereço só é exigido para pedidos de
+   * ENTREGA. Para RETIRADA, o cliente só
+   * precisa de nome e WhatsApp.
+   */
+  if (
+    customer.deliveryMethod ===
+    'delivery'
+  ) {
+    if (!customer.address) {
+      return 'Endereço é obrigatório.'
+    }
 
-  if (!customer.number) {
-    return 'Número é obrigatório.'
-  }
+    if (!customer.number) {
+      return 'Número é obrigatório.'
+    }
 
-  if (!customer.neighborhood) {
-    return 'Bairro é obrigatório.'
+    if (!customer.neighborhood) {
+      return 'Bairro é obrigatório.'
+    }
   }
 
   return null
@@ -349,35 +381,56 @@ export async function POST(
        ===================================================== */
 
     if (existingCustomer) {
+      /*
+       * Em pedidos de RETIRADA o endereço não é
+       * pedido nem validado — então, se o cliente
+       * já tem um endereço salvo de uma compra
+       * anterior, não queremos sobrescrevê-lo com
+       * campos vazios só porque este pedido não
+       * os enviou. Só atualizamos o endereço
+       * quando é uma ENTREGA, ou quando um
+       * endereço de fato foi enviado no payload.
+       */
+      const shouldUpdateAddress =
+        customer.deliveryMethod ===
+          'delivery' ||
+        Boolean(customer.address)
+
+      const updatePayload: Record<
+        string,
+        unknown
+      > = {
+        name: customer.name,
+
+        updated_at:
+          new Date().toISOString(),
+      }
+
+      if (shouldUpdateAddress) {
+        updatePayload.address =
+          customer.address
+
+        updatePayload.number =
+          customer.number
+
+        updatePayload.complement =
+          customer.complement ||
+          null
+
+        updatePayload.neighborhood =
+          customer.neighborhood
+
+        updatePayload.reference =
+          customer.reference ||
+          null
+      }
+
       const {
         data,
         error,
       } = await supabaseAdmin
         .from('customers')
-        .update({
-          name:
-            customer.name,
-
-          address:
-            customer.address,
-
-          number:
-            customer.number,
-
-          complement:
-            customer.complement ||
-            null,
-
-          neighborhood:
-            customer.neighborhood,
-
-          reference:
-            customer.reference ||
-            null,
-
-          updated_at:
-            new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq(
           'id',
           existingCustomer.id

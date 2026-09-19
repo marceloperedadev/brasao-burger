@@ -3,7 +3,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import styles from './BioHero.module.css'
-import { SITE_CONFIG } from '@/app/config/site'
 
 const DATA = {
   name: 'Brasão Burger',
@@ -23,7 +22,7 @@ const DATA = {
 
   links: {
     menu: '/cardapio',
-    order: SITE_CONFIG.whatsapp.menu,
+    order: '/cardapio',
 
     reservation:
       'https://wa.me/5512991234567?text=Ol%C3%A1%2C%20gostaria%20de%20reservar%20uma%20mesa%20no%20Bras%C3%A3o%20Burger.',
@@ -39,7 +38,7 @@ export function BioHero() {
       className={styles.heroSection}
       aria-labelledby="brasao-hero-title"
     >
-     {/*D/*}
+      {/* D */}
 
       <div className={styles.backgroundOverlay} aria-hidden="true" />
 
@@ -104,7 +103,10 @@ export function BioHero() {
           <div className={styles.heroContent}>
 
             <p className={styles.eyebrow}>
-              <span className={styles.eyebrowDot} aria-hidden="true" />
+              <span
+                className={styles.eyebrowDot}
+                aria-hidden="true"
+              />
               {DATA.category}
             </p>
 
@@ -171,12 +173,11 @@ export function BioHero() {
               ================================================= */}
           <div className={styles.actions}>
 
-            <a
+            <Link
               href={DATA.links.order}
-              target="_blank"
-              rel="noopener noreferrer"
               className={styles.primaryAction}
-              aria-label="Fazer pedido pelo WhatsApp"
+              aria-label="Fazer pedido no cardápio do Brasão Burger"
+              prefetch
             >
               <span>Fazer pedido</span>
 
@@ -186,7 +187,7 @@ export function BioHero() {
               >
                 →
               </span>
-            </a>
+            </Link>
 
             <a
               href={DATA.links.reservation}

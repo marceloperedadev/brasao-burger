@@ -176,6 +176,67 @@
 }
 
 /* =========================================================
+   BARRA DE CONFIANÇA
+   ========================================================= */
+
+.trustBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+
+  gap: 8px 18px;
+
+  padding: 16px 0;
+  margin-top: -14px;
+
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.trustBarItem {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  color: var(--muted);
+  text-decoration: none;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 0.02em;
+
+  transition: color 0.18s ease;
+}
+
+a.trustBarItem:hover {
+  color: var(--gold-light);
+}
+
+.trustBarDot {
+  flex-shrink: 0;
+
+  width: 6px;
+  height: 6px;
+
+  background: var(--soft);
+
+  border-radius: 50%;
+}
+
+.trustBarOpen {
+  color: var(--gold-light);
+}
+
+.trustBarOpen .trustBarDot {
+  background: var(--gold-light);
+
+  box-shadow:
+    0 0 6px rgba(225, 194, 125, 0.6);
+}
+
+/* =========================================================
    CATEGORY NAV
    ========================================================= */
 
@@ -240,8 +301,8 @@
 
   flex-shrink: 0;
 
-  min-height: 34px;
-  padding: 8px 12px;
+  min-height: 40px;
+  padding: 9px 14px;
 
   color: var(--soft);
 
@@ -252,7 +313,7 @@
   border-radius: 999px;
 
   font-family: inherit;
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 900;
 
   letter-spacing: 0.07em;
@@ -435,26 +496,31 @@
   display: grid;
 
   grid-template-columns:
-    58px
+    64px
     minmax(0, 1fr)
     max-content
-    34px;
+    38px;
 
   align-items: center;
 
-  gap: 10px;
+  gap: 12px;
 
   width: 100%;
   min-width: 0;
-  min-height: 76px;
+  min-height: 84px;
 
-  padding: 10px 0;
+  padding: 12px 0;
 
   border-bottom: 1px solid rgba(255, 255, 255, 0.045);
 
   transition:
     background 0.2s ease,
     border-color 0.2s ease;
+}
+
+/* S10 — leve zebra a cada 2 linhas, para facilitar leitura de listas longas */
+.productRow:nth-child(even) {
+  background: rgba(255, 255, 255, 0.012);
 }
 
 .productRow:hover {
@@ -491,9 +557,9 @@
 
   display: block;
 
-  width: 58px;
-  height: 58px;
-  min-width: 58px;
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
 
   padding: 0;
   overflow: hidden;
@@ -662,9 +728,9 @@
   display: grid;
   place-items: center;
 
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
 
   padding: 0;
 
@@ -1142,7 +1208,7 @@
 .quantityArea > span {
   color: var(--soft);
 
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 900;
 
   letter-spacing: 0.12em;
@@ -1217,7 +1283,7 @@
 .total span {
   color: var(--soft);
 
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 900;
 
   letter-spacing: 0.12em;
@@ -1575,7 +1641,7 @@
   display: flex;
   align-items: center;
 
-  height: 31px;
+  height: 38px;
 
   background:
     rgba(255, 255, 255, 0.018);
@@ -1590,8 +1656,8 @@
   appearance: none;
   -webkit-appearance: none;
 
-  width: 30px;
-  height: 31px;
+  width: 36px;
+  height: 38px;
 
   padding: 0;
 
@@ -1689,6 +1755,41 @@
     1px solid rgba(200, 161, 90, 0.16);
 }
 
+.paymentMethodsPreview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+
+  gap: 6px 10px;
+
+  margin-bottom: 12px;
+
+  padding-bottom: 12px;
+
+  border-bottom:
+    1px solid rgba(200, 161, 90, 0.12);
+}
+
+.paymentMethodsPreview span {
+  color: var(--soft);
+
+  font-size: 8px;
+  font-weight: 800;
+
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.paymentMethodsPreview strong {
+  color: var(--muted);
+
+  font-size: 9px;
+  font-weight: 700;
+
+  letter-spacing: 0.03em;
+}
+
 .cartSummary {
   display: flex;
   align-items: center;
@@ -1700,7 +1801,7 @@
 .cartSummary span {
   color: var(--soft);
 
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 900;
 
   letter-spacing: 0.12em;
@@ -1799,7 +1900,7 @@
   border: 0;
 
   font-family: inherit;
-  font-size: 8px;
+  font-size: 9px;
 
   cursor: pointer;
 
@@ -1816,6 +1917,192 @@
 /* =========================================================
    CHECKOUT
    ========================================================= */
+
+/* =========================================================
+   PROGRESSO DO CHECKOUT
+   ========================================================= */
+
+.checkoutProgress {
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  padding: 14px 20px;
+
+  background: rgba(8, 7, 6, 0.55);
+
+  border-bottom: 1px solid var(--line);
+}
+
+.checkoutProgressBar {
+  display: flex;
+  flex-direction: column;
+
+  gap: 6px;
+
+  flex: 1;
+  min-width: 0;
+}
+
+.checkoutProgressLabel {
+  color: var(--soft);
+
+  font-size: 9px;
+  font-weight: 900;
+
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.checkoutProgressTrack {
+  width: 100%;
+  height: 3px;
+
+  background: rgba(200, 161, 90, 0.14);
+
+  border-radius: 2px;
+
+  overflow: hidden;
+}
+
+.checkoutProgressFill {
+  height: 100%;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--gold-dark),
+      var(--gold-light)
+    );
+
+  border-radius: 2px;
+
+  transition: width 0.25s ease;
+}
+
+.checkoutProgressSummary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+
+  gap: 2px;
+
+  flex-shrink: 0;
+}
+
+.checkoutProgressSummary span {
+  color: var(--soft);
+
+  font-size: 8px;
+  font-weight: 800;
+
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checkoutProgressSummary strong {
+  color: var(--gold-light);
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: 15px;
+}
+
+/* =========================================================
+   RESUMO CONDENSADO DO CLIENTE
+   ========================================================= */
+
+.customerConfirmSummary {
+  display: flex;
+  flex-direction: column;
+
+  gap: 13px;
+}
+
+.customerConfirmSummaryList {
+  display: flex;
+  flex-direction: column;
+
+  gap: 10px;
+
+  padding: 14px;
+
+  background:
+    rgba(255, 255, 255, 0.025);
+
+  border:
+    1px solid rgba(200, 161, 90, 0.18);
+
+  border-radius: 6px;
+}
+
+.customerConfirmSummaryRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+
+  gap: 12px;
+}
+
+.customerConfirmSummaryRow span {
+  flex-shrink: 0;
+
+  color: var(--soft);
+
+  font-size: 9px;
+  font-weight: 900;
+
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.customerConfirmSummaryRow strong {
+  color: var(--cream);
+
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+
+  text-align: right;
+}
+
+.customerEditButton {
+  appearance: none;
+  -webkit-appearance: none;
+
+  padding: 6px 0;
+
+  color: var(--soft);
+
+  background: transparent;
+
+  border: 0;
+
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 0.04em;
+
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+
+  cursor: pointer;
+
+  transition: color 0.18s ease;
+}
+
+.customerEditButton:hover {
+  color: var(--gold-light);
+}
 
 .checkoutScreen {
   display: flex;
@@ -1851,7 +2138,7 @@
   border: 0;
 
   font-family: inherit;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
 
   cursor: pointer;
@@ -1916,7 +2203,7 @@
 
   color: var(--soft);
 
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 900;
 
   letter-spacing: 0.11em;
@@ -1926,7 +2213,7 @@
 .customerField small {
   color: var(--soft);
 
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 700;
 
   letter-spacing: 0;
@@ -1986,6 +2273,87 @@
   gap: 10px;
 }
 
+/* =========================================================
+   PIX — CHAVE COPIA-E-COLA
+   ========================================================= */
+
+.pixKeyBox {
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+
+  padding: 14px;
+
+  background:
+    rgba(200, 161, 90, 0.05);
+
+  border:
+    1px solid rgba(200, 161, 90, 0.22);
+
+  border-radius: 6px;
+}
+
+.pixKeyLabel {
+  color: var(--soft);
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  line-height: 1.5;
+}
+
+.pixKeyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+}
+
+.pixKeyRow strong {
+  color: var(--cream);
+
+  font-size: 13px;
+  font-weight: 600;
+
+  overflow-wrap: anywhere;
+}
+
+.pixCopyButton {
+  appearance: none;
+  -webkit-appearance: none;
+
+  flex-shrink: 0;
+
+  padding: 8px 14px;
+
+  color: var(--bg);
+
+  background: var(--gold-light);
+
+  border: 0;
+  border-radius: 4px;
+
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 900;
+
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  cursor: pointer;
+
+  transition: opacity 0.18s ease;
+}
+
+.pixCopyButton:hover {
+  opacity: 0.85;
+}
+
 .customerError {
   margin: 0;
 
@@ -2001,7 +2369,7 @@
 
   border-radius: 4px;
 
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.5;
 }
 
@@ -2183,7 +2551,7 @@
 .checkoutOption small {
   color: var(--soft);
 
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1.3;
 }
 
@@ -2230,7 +2598,7 @@
 .customerSummary span {
   color: var(--soft);
 
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 900;
 
   letter-spacing: 0.1em;
@@ -2353,7 +2721,7 @@
 
   color: var(--muted);
 
-  font-size: 9px;
+  font-size: 10px;
 
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2364,7 +2732,7 @@
 
   color: var(--gold-light);
 
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .checkoutSecondaryButton {
@@ -2487,12 +2855,12 @@
 
   .productRow {
     grid-template-columns:
-      64px
+      72px
       minmax(0, 1fr)
       max-content
-      38px;
+      42px;
 
-    min-height: 84px;
+    min-height: 92px;
 
     gap: 14px;
 
@@ -2500,9 +2868,9 @@
   }
 
   .thumbnail {
-    width: 64px;
-    height: 64px;
-    min-width: 64px;
+    width: 72px;
+    height: 72px;
+    min-width: 72px;
   }
 
   .productNameLine h3 {
@@ -2519,9 +2887,9 @@
   }
 
   .addQuick {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
   }
 
   /* -------------------------------------------------------
@@ -2624,13 +2992,13 @@
   }
 
   .categoryLink {
-    min-height: 36px;
+    min-height: 42px;
 
     padding:
-      9px
-      15px;
+      10px
+      16px;
 
-    font-size: 8.5px;
+    font-size: 9px;
   }
 
   .categorySection {
@@ -2649,12 +3017,12 @@
 
   .productRow {
     grid-template-columns:
-      72px
+      80px
       minmax(0, 1fr)
       max-content
-      40px;
+      44px;
 
-    min-height: 92px;
+    min-height: 100px;
 
     gap: 16px;
 
@@ -2662,9 +3030,9 @@
   }
 
   .thumbnail {
-    width: 72px;
-    height: 72px;
-    min-width: 72px;
+    width: 80px;
+    height: 80px;
+    min-width: 80px;
   }
 
   .productNameLine h3 {
@@ -2684,9 +3052,9 @@
   }
 
   .addQuick {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
   }
 
   /* -------------------------------------------------------
@@ -2755,22 +3123,34 @@
     font-size: 30px;
   }
 
+  /* S8 — a partir daqui a lista de produtos vira um grid de
+     2 colunas, aproveitando o espaço horizontal do desktop
+     grande. productList só contém os productRow mapeados,
+     então isso não exige nenhuma mudança de JSX. */
+  .productList {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    column-gap: 48px;
+    row-gap: 0;
+  }
+
   .productRow {
     grid-template-columns:
-      78px
+      88px
       minmax(0, 1fr)
       max-content
-      42px;
+      46px;
 
-    min-height: 98px;
+    min-height: 108px;
 
-    gap: 18px;
+    gap: 20px;
   }
 
   .thumbnail {
-    width: 78px;
-    height: 78px;
-    min-width: 78px;
+    width: 88px;
+    height: 88px;
+    min-width: 88px;
   }
 
   .productNameLine h3 {
@@ -2787,9 +3167,9 @@
   }
 
   .addQuick {
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
   }
 }
 
@@ -2822,15 +3202,18 @@
 
   .productRow {
     grid-template-columns:
+      48px
       minmax(0, 1fr)
       max-content
-      32px;
+      36px;
 
-    gap: 8px;
+    gap: 9px;
   }
 
   .thumbnail {
-    display: none;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
   }
 
   .productNameLine h3 {
@@ -2846,9 +3229,9 @@
   }
 
   .addQuick {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
   }
 
   .categoryHeading h2 {
@@ -2888,6 +3271,7 @@
 
   .cartItem {
     grid-template-columns:
+      40px
       minmax(0, 1fr)
       auto;
 
@@ -2895,12 +3279,8 @@
   }
 
   .cartItemImage {
-    display: none;
-  }
-
-  .cartItemTotal {
-    grid-column: 2;
-    grid-row: 1;
+    width: 40px;
+    height: 40px;
   }
 
   .cartItemMain h3 {
@@ -2911,8 +3291,13 @@
     gap: 7px;
   }
 
+  .cartQuantity {
+    height: 34px;
+  }
+
   .cartQuantity button {
-    width: 28px;
+    width: 32px;
+    height: 34px;
   }
 
   .cartFooter {
@@ -2962,22 +3347,29 @@
   }
 
   .categoryLink {
-    min-height: 32px;
+    min-height: 36px;
 
     padding:
-      7px
-      10px;
+      8px
+      11px;
 
     font-size: 7px;
   }
 
   .productRow {
     grid-template-columns:
+      42px
       minmax(0, 1fr)
       max-content
-      30px;
+      34px;
 
-    gap: 6px;
+    gap: 7px;
+  }
+
+  .thumbnail {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
   }
 
   .productNameLine {
@@ -2993,9 +3385,9 @@
   }
 
   .addQuick {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
 
     font-size: 19px;
   }

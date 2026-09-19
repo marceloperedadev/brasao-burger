@@ -10,8 +10,10 @@ export const SITE_CONFIG = {
   brand: {
     name: 'Brasão Burger',
     role: 'Hamburgueria Artesanal',
+
     description:
       'O verdadeiro hambúrguer na parrilla em Taubaté. Ingredientes selecionados, molhos artesanais, porções rústicas e o melhor chope trincando da praça.',
+
     location: 'Taubaté - SP',
   },
 
@@ -108,6 +110,28 @@ export const SITE_CONFIG = {
       close: '23:00',
       closed: false,
     },
+  },
+
+  // -------------------------------------------------------
+  // PAGAMENTOS
+  // -------------------------------------------------------
+  payment: {
+    accepted: [
+      {
+        id: 'pix',
+        label: 'Pix',
+      },
+
+      {
+        id: 'dinheiro',
+        label: 'Dinheiro',
+      },
+
+      {
+        id: 'cartao',
+        label: 'Cartão',
+      },
+    ],
   },
 
   // -------------------------------------------------------
