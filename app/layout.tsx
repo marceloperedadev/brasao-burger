@@ -18,7 +18,7 @@ const SITE_NAME = 'Brasão Burger'
 const SITE_DESCRIPTION =
   'O verdadeiro hambúrguer na parrilla em Taubaté. Ingredientes selecionados, molhos artesanais, porções rústicas e o melhor chope trincando da praça.'
 
-const OG_IMAGE = '/images/brasao-burger.jpg'
+const OG_IMAGE = '/images/brasao-fachada.jpg'
 
 // =========================================================
 // METADATA
@@ -95,8 +95,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: OG_IMAGE,
-        width: 1200,
-        height: 630,
+        width: 1024,
+        height: 1024,
         alt:
           'Brasão Burger — Hambúrguer Artesanal na Parrilla em Taubaté',
       },

@@ -53,6 +53,11 @@ export default async function Home() {
     categoriesError ||
     productsError
   ) {
+    console.error('Falha ao carregar dados do Supabase na página inicial.', {
+      categoriesError,
+      productsError,
+    })
+
     return (
       <main
         style={{
@@ -75,9 +80,7 @@ export default async function Home() {
           </h1>
 
           <p>
-            {categoriesError?.message ||
-              productsError?.message ||
-              'Não foi possível carregar os dados.'}
+            Não foi possível carregar os dados agora. Tente novamente mais tarde.
           </p>
         </div>
       </main>

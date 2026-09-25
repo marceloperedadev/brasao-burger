@@ -261,7 +261,7 @@ export function Gallery({
               >
 
                 <Image
-                  src="/images/logo-brasao.png"
+                  src="/images/logo-brasao.jpg"
                   alt=""
                   width={30}
                   height={30}

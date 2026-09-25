@@ -2488,6 +2488,10 @@ a.trustBarItem:hover {
     transform 0.18s ease;
 }
 
+.checkoutOption[hidden] {
+  display: none;
+}
+
 .checkoutOption:hover {
   background:
     rgba(200, 161, 90, 0.045);

@@ -42,6 +42,11 @@ export default async function CardapioPage() {
     categoriesError ||
     productsError
   ) {
+    console.error('Falha ao carregar dados do Supabase no cardápio.', {
+      categoriesError,
+      productsError,
+    })
+
     return (
       <main
         style={{
@@ -64,9 +69,7 @@ export default async function CardapioPage() {
           </h1>
 
           <p>
-            {categoriesError?.message ||
-              productsError?.message ||
-              'Não foi possível carregar os produtos.'}
+            Não foi possível carregar os produtos agora. Tente novamente mais tarde.
           </p>
         </div>
       </main>

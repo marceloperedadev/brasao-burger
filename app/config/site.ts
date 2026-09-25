@@ -3,6 +3,17 @@
 // BRASÃO BURGER — CONFIGURAÇÃO DO SITE
 // =========================================================
 
+const WHATSAPP_NUMBER = '5512991234567';
+
+type WhatsAppUrl = `https://wa.me/${string}?text=${string}`;
+
+function createWhatsAppUrl(message: string): WhatsAppUrl {
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+}
+
+const PIX_KEY: string | undefined = undefined
+const PIX_KEY_TYPE: string | undefined = undefined
+
 export const SITE_CONFIG = {
   // -------------------------------------------------------
   // MARCA
@@ -21,16 +32,19 @@ export const SITE_CONFIG = {
   // WHATSAPP
   // -------------------------------------------------------
   whatsapp: {
-    number: '5512991234567',
+    number: WHATSAPP_NUMBER,
 
-    general:
-      'https://wa.me/5512991234567?text=Ol%C3%A1!%20Quero%20fazer%20um%20pedido%20no%20Bras%C3%A3o%20Burger.',
+    general: createWhatsAppUrl(
+      'Olá! Quero fazer um pedido no Brasão Burger.',
+    ),
 
-    menu:
-      'https://wa.me/5512991234567?text=Ol%C3%A1!%20Quero%20ver%20o%20card%C3%A1pio%20do%20Bras%C3%A3o%20Burger.',
+    menu: createWhatsAppUrl(
+      'Olá! Quero ver o cardápio do Brasão Burger.',
+    ),
 
-    quickOrder:
-      'https://wa.me/5512991234567?text=Ol%C3%A1!%20Quero%20fazer%20um%20pedido%20r%C3%A1pido%20no%20Bras%C3%A3o%20Burger.',
+    quickOrder: createWhatsAppUrl(
+      'Olá! Quero fazer um pedido rápido no Brasão Burger.',
+    ),
   },
 
   // -------------------------------------------------------
@@ -116,16 +130,11 @@ export const SITE_CONFIG = {
   // PAGAMENTOS
   // -------------------------------------------------------
   payment: {
-    pixKey: undefined,
+    pixKey: PIX_KEY,
 
-    pixKeyType: undefined,
+    pixKeyType: PIX_KEY_TYPE,
 
     accepted: [
-      {
-        id: 'pix',
-        label: 'Pix',
-      },
-
       {
         id: 'dinheiro',
         label: 'Dinheiro',
