@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
 
 type DeliveryMethod = 'delivery' | 'pickup'
 
@@ -11,146 +11,126 @@ type CustomerInput = {
   number: string
   complement: string
   neighborhood: string
+  zipCode: string
   reference: string
 }
 
-function normalizePhone(value: string) {
-  const digits = value.replace(/\D/g, '')
-  return digits.startsWith('55') && (digits.length === 12 || digits.length === 13)
-    ? digits.slice(2)
-    : digits
-}
+const PROFILE_FIELDS =
+  'user_id,name,phone,address,number,complement,neighborhood,zip_code,reference'
 
 function jsonError(message: string, status: number) {
   return NextResponse.json(
     { error: message },
-    {
-      status,
-      headers: { 'Cache-Control': 'no-store' },
-    }
+    { status, headers: { 'Cache-Control': 'no-store' } }
   )
 }
 
-function getSupabaseConfig() {
+function createAuthenticatedClient(token: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  const secretKey = process.env.SUPABASE_SECRET_KEY
+  const publishableKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (!url || !publishableKey || !secretKey) {
-    throw new Error('Configuração Supabase incompleta no servidor.')
+  if (!url || !publishableKey) {
+    throw new Error('Supabase não está configurado no servidor.')
   }
 
-  return { url, publishableKey, secretKey }
+  return createClient(url, publishableKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
 }
 
-async function getVerifiedPhone(request: Request) {
-  const authorization = request.headers.get('authorization')
-  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]
+async function getAuthenticatedUser(request: Request) {
+  const token = request.headers
+    .get('authorization')
+    ?.match(/^Bearer\s+(.+)$/i)?.[1]
 
   if (!token) {
-    return { error: jsonError('Verifique seu telefone para continuar.', 401) }
+    return { error: jsonError('Entre com sua conta Google para continuar.', 401) }
   }
 
-  const { url, publishableKey } = getSupabaseConfig()
-  const authClient = createClient(url, publishableKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-  const { data, error } = await authClient.auth.getUser(token)
+  const client = createAuthenticatedClient(token)
+  const { data, error } = await client.auth.getUser(token)
 
-  if (error || !data.user?.phone || !data.user.phone_confirmed_at) {
-    return { error: jsonError('Verificação de telefone inválida ou expirada.', 401) }
+  if (error || !data.user?.id || !data.user.email) {
+    return { error: jsonError('Sua sessão expirou. Entre novamente.', 401) }
   }
 
-  const phone = normalizePhone(data.user.phone)
-  if (phone.length < 10 || phone.length > 11) {
-    return { error: jsonError('Telefone verificado inválido.', 401) }
-  }
-
-  return { phone, config: getSupabaseConfig() }
+  return { client, user: data.user }
 }
 
 function readCustomerInput(value: unknown): CustomerInput | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
 
   const body = value as Record<string, unknown>
   const clean = (field: unknown) =>
     typeof field === 'string' ? field.trim() : ''
-  const deliveryMethod: DeliveryMethod =
-    body.deliveryMethod === 'pickup' ? 'pickup' : 'delivery'
+
+  if (body.deliveryMethod !== 'delivery' && body.deliveryMethod !== 'pickup') {
+    return null
+  }
 
   return {
     name: clean(body.name),
-    phone: normalizePhone(clean(body.phone)),
-    deliveryMethod,
+    phone: clean(body.phone).replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, ''),
+    deliveryMethod: body.deliveryMethod,
     address: clean(body.address),
     number: clean(body.number),
     complement: clean(body.complement),
     neighborhood: clean(body.neighborhood),
+    zipCode: clean(body.zipCode).replace(/\D/g, ''),
     reference: clean(body.reference),
   }
 }
 
 function validateCustomer(customer: CustomerInput) {
-  if (!customer.name || customer.name.length > 120) {
-    return 'Informe um nome válido.'
-  }
+  if (!customer.name || customer.name.length > 120) return 'Informe um nome válido.'
   if (customer.phone.length < 10 || customer.phone.length > 11) {
-    return 'WhatsApp inválido.'
+    return 'Informe um WhatsApp válido.'
   }
   if (customer.deliveryMethod === 'delivery') {
     if (!customer.address || !customer.number || !customer.neighborhood) {
-      return 'Endereço, número e bairro são obrigatórios para entrega.'
+      return 'Preencha o endereço, número e bairro para entrega.'
     }
+    if (!/^\d{8}$/.test(customer.zipCode)) return 'Informe um CEP válido.'
   }
   if (
     customer.address.length > 200 ||
     customer.number.length > 30 ||
     customer.complement.length > 120 ||
     customer.neighborhood.length > 120 ||
-    customer.reference.length > 180
+    customer.reference.length > 180 ||
+    (customer.zipCode && !/^\d{8}$/.test(customer.zipCode))
   ) {
-    return 'Revise os campos do endereço.'
+    return 'Revise os dados informados.'
   }
   return null
 }
 
 export async function GET(request: Request) {
   try {
-    const verified = await getVerifiedPhone(request)
-    if (verified.error) return verified.error
+    const auth = await getAuthenticatedUser(request)
+    if (auth.error) return auth.error
 
-    const requestedPhone = normalizePhone(
-      new URL(request.url).searchParams.get('phone') ?? ''
-    )
-    if (!requestedPhone || requestedPhone !== verified.phone) {
-      return jsonError('O telefone consultado não corresponde ao telefone verificado.', 403)
-    }
-
-    const supabaseAdmin = createClient(
-      verified.config.url,
-      verified.config.secretKey,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-    const { data, error } = await supabaseAdmin
-      .from('customers')
-      .select('id,name,phone,address,number,complement,neighborhood,reference')
-      .eq('phone', verified.phone)
+    const { data, error } = await auth.client
+      .from('customer_profiles')
+      .select(PROFILE_FIELDS)
+      .eq('user_id', auth.user.id)
       .maybeSingle()
 
     if (error) {
-      console.error('Falha ao consultar cadastro de cliente.', error)
-      return jsonError('Não foi possível consultar o cadastro agora.', 500)
+      console.error('Falha ao consultar perfil do cliente.', error)
+      return jsonError('Não foi possível carregar seus dados agora.', 500)
     }
 
     return NextResponse.json(
-      { customer: data },
+      { customer: data, email: auth.user.email },
       { headers: { 'Cache-Control': 'no-store' } }
     )
   } catch (error) {
-    console.error('Falha ao autenticar consulta de cliente.', error)
-    return jsonError('Não foi possível verificar seu telefone agora.', 503)
+    console.error('Falha ao autenticar consulta de perfil.', error)
+    return jsonError('Não foi possível carregar seus dados agora.', 503)
   }
 }
 
@@ -177,7 +157,7 @@ export async function POST(request: Request) {
         if (done) break
         totalBytes += value.byteLength
         if (totalBytes > 8_192) {
-          await reader.cancel()
+          await reader.cancel().catch(() => undefined)
           return jsonError('Requisição muito grande.', 413)
         }
         chunks.push(value)
@@ -194,80 +174,46 @@ export async function POST(request: Request) {
       return jsonError('Requisição inválida.', 400)
     }
 
-    const verified = await getVerifiedPhone(request)
-    if (verified.error) return verified.error
-
     const customer = readCustomerInput(body)
     if (!customer) return jsonError('Requisição inválida.', 400)
 
     const validationError = validateCustomer(customer)
     if (validationError) return jsonError(validationError, 400)
-    if (customer.phone !== verified.phone) {
-      return jsonError('O telefone do cadastro não corresponde ao telefone verificado.', 403)
-    }
 
-    const supabaseAdmin = createClient(
-      verified.config.url,
-      verified.config.secretKey,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-    const { data: existing, error: lookupError } = await supabaseAdmin
-      .from('customers')
-      .select('id')
-      .eq('phone', verified.phone)
-      .maybeSingle()
+    const auth = await getAuthenticatedUser(request)
+    if (auth.error) return auth.error
 
-    if (lookupError) {
-      console.error('Falha ao localizar cadastro de cliente.', lookupError)
-      return jsonError('Não foi possível salvar o cadastro agora.', 500)
-    }
-
-    const payload = {
+    const profile = {
       name: customer.name,
-      ...(customer.deliveryMethod === 'delivery' || customer.address
-        ? {
-            address: customer.address,
-            number: customer.number,
-            complement: customer.complement || null,
-            neighborhood: customer.neighborhood,
-            reference: customer.reference || null,
-          }
-        : {}),
+      phone: customer.phone,
+      address: customer.address,
+      number: customer.number,
+      complement: customer.complement || null,
+      neighborhood: customer.neighborhood,
+      zip_code: customer.zipCode,
+      reference: customer.reference || null,
     }
 
-    const query = existing
-      ? supabaseAdmin
-          .from('customers')
-          .update({ ...payload, updated_at: new Date().toISOString() })
-          .eq('id', existing.id)
-      : supabaseAdmin.from('customers').insert({
-          ...payload,
-          phone: verified.phone,
-          address: customer.address,
-          number: customer.number,
-          complement: customer.complement || null,
-          neighborhood: customer.neighborhood,
-          reference: customer.reference || null,
-        })
-
-    const { data, error } = await query
-      .select('id,name,phone,address,number,complement,neighborhood,reference')
+    const { data, error } = await auth.client
+      .from('customer_profiles')
+      .upsert(profile, { onConflict: 'user_id' })
+      .select(PROFILE_FIELDS)
       .single()
 
     if (error) {
-      console.error('Falha ao salvar cadastro de cliente.', error)
-      return jsonError('Não foi possível salvar o cadastro agora.', 500)
+      console.error('Falha ao salvar perfil do cliente.', error)
+      return jsonError('Não foi possível salvar seus dados agora.', 500)
     }
 
     return NextResponse.json(
-      { customer: data, created: !existing },
+      { customer: data, email: auth.user.email },
       {
-        status: existing ? 200 : 201,
+        status: 200,
         headers: { 'Cache-Control': 'no-store' },
       }
     )
   } catch (error) {
-    console.error('Falha ao processar cadastro de cliente.', error)
-    return jsonError('Não foi possível salvar o cadastro agora.', 503)
+    console.error('Falha ao processar perfil do cliente.', error)
+    return jsonError('Não foi possível salvar seus dados agora.', 503)
   }
 }
