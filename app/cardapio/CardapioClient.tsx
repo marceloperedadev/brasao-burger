@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from 'react'
@@ -11,6 +12,7 @@ import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { SITE_CONFIG } from '@/app/config/site'
+import { calculateDeliveryFee, parseDeliveryFees } from '@/lib/delivery-fees'
 import { supabase } from '@/lib/supabase'
 import styles from './Cardapio.module.css'
 
@@ -38,6 +40,25 @@ type CartItem = {
   quantity: number
 }
 
+type PersistedOrder = {
+  id: string
+  name: string
+  phone: string
+  deliveryMethod: DeliveryMethod
+  address: string | null
+  number: string | null
+  complement: string | null
+  neighborhood: string | null
+  zipCode: string | null
+  reference: string | null
+  paymentMethod: PaymentMethod
+  changeFor: number | null
+  subtotal: number
+  deliveryFee: number
+  total: number
+  items: Array<{ productId: number; name: string; quantity: number; unitPrice: number; lineTotal: number }>
+}
+
 type Customer = {
   id: number
   name: string
@@ -46,6 +67,7 @@ type Customer = {
   number: string | null
   complement: string | null
   neighborhood: string | null
+  zip_code: string | null
   reference: string | null
 }
 
@@ -56,6 +78,7 @@ type CustomerForm = {
   number: string
   complement: string
   neighborhood: string
+  zipCode: string
   reference: string
 }
 
@@ -221,7 +244,7 @@ type Props = {
   products: Product[]
 }
 
-
+const DELIVERY_FEES = parseDeliveryFees(process.env.NEXT_PUBLIC_DELIVERY_FEES)
 
 export default function CardapioClient({
   categories,
@@ -229,6 +252,9 @@ export default function CardapioClient({
 }: Props) {
   const searchParams =
     useSearchParams()
+  const oauthReturn = searchParams.get('oauth') === 'google'
+  const oauthCallbackHandled = useRef(false)
+  const orderAttempt = useRef<{ fingerprint: string; key: string } | null>(null)
 
   /*
    * =========================================================
@@ -264,6 +290,8 @@ export default function CardapioClient({
   const [cart, setCart] =
     useState<CartItem[]>([])
 
+  const [cartHydrated, setCartHydrated] = useState(false)
+
   const [cartOpen, setCartOpen] =
     useState(false)
 
@@ -292,28 +320,23 @@ export default function CardapioClient({
       number: '',
       complement: '',
       neighborhood: '',
+      zipCode: '',
       reference: '',
     })
 
   const [customerFound, setCustomerFound] =
     useState(false)
 
-  const [verificationSent, setVerificationSent] =
-    useState(false)
-
-  const [verificationCode, setVerificationCode] =
-    useState('')
-
   const [customerAccessToken, setCustomerAccessToken] =
     useState('')
-
-  const [canContinueWithoutVerification, setCanContinueWithoutVerification] =
-    useState(false)
 
   const [customerLoading, setCustomerLoading] =
     useState(false)
 
   const [customerSaving, setCustomerSaving] =
+    useState(false)
+
+  const [orderSaving, setOrderSaving] =
     useState(false)
 
   /*
@@ -399,9 +422,7 @@ export default function CardapioClient({
       : digits
   }
 
-  function toBrazilE164(phone: string) {
-    return `+55${normalizePhone(phone)}`
-  }
+
 
   function formatPhone(
     phone: string
@@ -684,6 +705,7 @@ export default function CardapioClient({
    */
 
   function clearCart() {
+    orderAttempt.current = null
     setCart([])
 
     setCheckoutStep('cart')
@@ -692,10 +714,7 @@ export default function CardapioClient({
 
     setShowCustomerForm(false)
 
-    setVerificationSent(false)
-    setVerificationCode('')
     setCustomerAccessToken('')
-    setCanContinueWithoutVerification(false)
 
     setCustomerError('')
 
@@ -706,6 +725,7 @@ export default function CardapioClient({
       number: '',
       complement: '',
       neighborhood: '',
+      zipCode: '',
       reference: '',
     })
 
@@ -733,16 +753,19 @@ export default function CardapioClient({
   const cartTotal = useMemo(
     () =>
       cart.reduce(
-        (total, item) =>
-          total +
-          Number(
-            item.product.price
-          ) *
-            item.quantity,
+        (totalCents, item) =>
+          totalCents + Math.round(Number(item.product.price) * 100) * item.quantity,
         0
-      ),
+      ) / 100,
     [cart]
   )
+
+  const deliveryFee = useMemo(() => {
+    if (deliveryMethod === 'pickup') return 0
+    return calculateDeliveryFee(DELIVERY_FEES, customerForm.zipCode, customerForm.neighborhood)
+  }, [customerForm.neighborhood, customerForm.zipCode, deliveryMethod])
+
+  const orderTotal = Math.round((cartTotal + (deliveryFee ?? 0)) * 100) / 100
 
   /*
    * =========================================================
@@ -785,13 +808,6 @@ export default function CardapioClient({
       })
     )
 
-    if (field === 'phone') {
-      setVerificationSent(false)
-      setVerificationCode('')
-      setCustomerAccessToken('')
-      setCanContinueWithoutVerification(false)
-    }
-
     if (customerError) {
       setCustomerError('')
     }
@@ -811,10 +827,7 @@ export default function CardapioClient({
     setCustomerError('')
     setCustomerFound(false)
     setShowCustomerForm(false)
-    setVerificationSent(false)
-    setVerificationCode('')
     setCustomerAccessToken('')
-    setCanContinueWithoutVerification(false)
     setCheckoutStep('phone')
   }
 
@@ -824,118 +837,154 @@ export default function CardapioClient({
    * =========================================================
    */
 
-  async function searchCustomer() {
-    const phone =
-      normalizePhone(
-        customerForm.phone
-      )
-
-    if (phone.length < 10 || phone.length > 11) {
-      setCustomerError(
-        'Digite um WhatsApp válido.'
-      )
-
-      return
-    }
-
-    setCustomerForm((current) => ({ ...current, phone }))
+  async function signInWithGoogle() {
     setCustomerLoading(true)
     setCustomerError('')
-    setCanContinueWithoutVerification(false)
-
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: toBrazilE164(phone),
+      sessionStorage.removeItem('brasao-google-oauth-processed')
+      sessionStorage.setItem('brasao-google-oauth-pending', '1')
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/cardapio?oauth=google` },
       })
-
       if (error) throw error
-
-      setVerificationSent(true)
-      setVerificationCode('')
-      setCustomerError('')
     } catch (error) {
-      console.error('Falha ao enviar código de verificação.', error)
-      setVerificationSent(false)
-      setCanContinueWithoutVerification(true)
-      setCustomerError(
-        'Não foi possível enviar o código agora. Você pode continuar preenchendo seus dados sem consultar o cadastro.'
-      )
-    } finally {
+      sessionStorage.removeItem('brasao-google-oauth-pending')
+      console.error('Falha ao iniciar login Google.', error)
+      setCustomerError('Não foi possível iniciar o login Google. Tente novamente ou continue sem entrar.')
       setCustomerLoading(false)
     }
   }
 
-  async function verifyCustomerPhone() {
-    const phone = normalizePhone(customerForm.phone)
-    const code = verificationCode.trim()
-
-    if (!code) {
-      setCustomerError('Digite o código recebido por SMS.')
-      return
-    }
-
-    setCustomerLoading(true)
-    setCustomerError('')
-    setCanContinueWithoutVerification(false)
-
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: toBrazilE164(phone),
-        token: code,
-        type: 'sms',
-      })
-
-      if (error) throw error
-      const accessToken = data.session?.access_token
-      if (!accessToken) throw new Error('Sessão de telefone indisponível.')
-
-      const response = await fetch(
-        `/api/customer?phone=${encodeURIComponent(phone)}`,
-        {
-          method: 'GET',
-          cache: 'no-store',
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      )
-      const result = await response.json()
-      if (!response.ok) throw new Error(result?.error ?? 'Consulta indisponível.')
-
-      setCustomerAccessToken(accessToken)
-      setCustomerFound(Boolean(result.customer))
-      setShowCustomerForm(!result.customer)
-
-      if (result.customer) {
-        const customer = result.customer as Customer
-        setCustomerForm({
-          name: customer.name ?? '',
-          phone: normalizePhone(customer.phone ?? phone),
-          address: customer.address ?? '',
-          number: customer.number ?? '',
-          complement: customer.complement ?? '',
-          neighborhood: customer.neighborhood ?? '',
-          reference: customer.reference ?? '',
-        })
-      }
-
-      setVerificationSent(false)
-      setCheckoutStep('delivery')
-    } catch (error) {
-      console.error('Falha ao validar código ou consultar cadastro.', error)
-      setCanContinueWithoutVerification(true)
-      setCustomerError(
-        'Não foi possível validar o código agora. Você pode continuar preenchendo seus dados sem consultar o cadastro.'
-      )
-    } finally {
-      setCustomerLoading(false)
-    }
-  }
-
-  function continueWithoutCustomerLookup() {
+  function continueWithoutSignIn() {
     setCustomerAccessToken('')
     setCustomerFound(false)
     setShowCustomerForm(true)
     setCheckoutStep('delivery')
   }
+
+  async function signOutCustomer() {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      setCustomerError('Não foi possível sair da conta agora.')
+      return
+    }
+    setCustomerAccessToken('')
+    setCustomerFound(false)
+    setShowCustomerForm(true)
+    setCustomerError('')
+  }
+
+  useEffect(() => {
+    let frame = 0
+    try {
+      const saved = sessionStorage.getItem('brasao-checkout-cart')
+      if (saved) {
+        const parsed = JSON.parse(saved) as CartItem[]
+        frame = window.requestAnimationFrame(() => {
+          if (Array.isArray(parsed)) setCart(parsed)
+          setCartHydrated(true)
+        })
+      } else {
+        frame = window.requestAnimationFrame(() => setCartHydrated(true))
+      }
+    } catch (error) {
+      console.error(error)
+      frame = window.requestAnimationFrame(() => setCartHydrated(true))
+    }
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
+
+  useEffect(() => {
+    if (!cartHydrated) return
+    try {
+      sessionStorage.setItem('brasao-checkout-cart', JSON.stringify(cart))
+    } catch (error) {
+      console.error('Não foi possível salvar o carrinho nesta sessão.', error)
+    }
+  }, [cart, cartHydrated])
+
+  useEffect(() => {
+    const loadCustomerProfile = async (accessToken: string) => {
+      setCustomerLoading(true)
+      setCustomerError('')
+      setCustomerAccessToken(accessToken)
+      try {
+        const response = await fetch('/api/customer', {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result?.error ?? 'Profile lookup failed.')
+        const customer = result.customer as Customer | null
+        setCustomerFound(Boolean(customer))
+        setShowCustomerForm(!customer)
+        if (customer) {
+          setCustomerForm({
+            name: customer.name ?? '',
+            phone: normalizePhone(customer.phone ?? ''),
+            address: customer.address ?? '',
+            number: customer.number ?? '',
+            complement: customer.complement ?? '',
+            neighborhood: customer.neighborhood ?? '',
+            zipCode: customer.zip_code ?? '',
+            reference: customer.reference ?? '',
+          })
+        }
+        setCheckoutStep('delivery')
+        setCartOpen(true)
+      } catch (error) {
+        console.error('Failed to load the Google customer profile.', error)
+        setCustomerError('Sua conta Google foi conectada, mas os dados salvos nao carregaram. Continue preenchendo os dados do pedido.')
+        setCustomerAccessToken(accessToken)
+        setCustomerFound(false)
+        setShowCustomerForm(true)
+        setCheckoutStep('delivery')
+        setCartOpen(true)
+      } finally {
+        setCustomerLoading(false)
+      }
+    }
+
+    function removeOAuthMarker() {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('oauth')
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+    }
+
+    if (oauthReturn && !oauthCallbackHandled.current) {
+      oauthCallbackHandled.current = true
+      try {
+        sessionStorage.removeItem('brasao-google-oauth-pending')
+        sessionStorage.setItem('brasao-google-oauth-processed', '1')
+      } catch {
+        // Continue with OAuth when session storage is unavailable.
+      }
+
+      removeOAuthMarker()
+      setCartOpen(true)
+      setCustomerLoading(true)
+      void supabase.auth.getSession().then(async ({ data }) => {
+        if (data.session?.access_token) {
+          await loadCustomerProfile(data.session.access_token)
+        } else {
+          setCustomerLoading(false)
+          setCheckoutStep('phone')
+          setCustomerError('O login Google nao foi concluido. Tente novamente ou continue sem entrar.')
+        }
+      }).catch((error) => {
+        console.error('Failed to recover the Google session.', error)
+        setCustomerLoading(false)
+        setCheckoutStep('phone')
+        setCustomerError('Nao foi possivel recuperar a sessao Google. Tente novamente ou continue sem entrar.')
+      })
+    }
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') setCustomerAccessToken('')
+    })
+    return () => listener.subscription.unsubscribe()
+  }, [oauthReturn])
 
   /*
    * =========================================================
@@ -976,6 +1025,8 @@ export default function CardapioClient({
 
       neighborhood:
         customerForm.neighborhood.trim(),
+
+      zipCode: customerForm.zipCode.replace(/\D/g, ''),
 
       reference:
         customerForm.reference.trim(),
@@ -1021,11 +1072,21 @@ export default function CardapioClient({
 
         return
       }
+      if (payload.zipCode.length !== 8) {
+        setCustomerError('Informe um CEP válido com 8 dígitos.')
+        return
+      }
+      if (deliveryFee === null) {
+        setCustomerError('A taxa para este endereço não está configurada. Confirme o valor com o Brasão Burger antes de finalizar.')
+        return
+      }
     }
 
     setCustomerError('')
 
-    if (!customerAccessToken) {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+    if (!accessToken || !customerAccessToken) {
       setCheckoutStep('payment')
       return
     }
@@ -1036,7 +1097,7 @@ export default function CardapioClient({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${customerAccessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify(payload),
       })
@@ -1055,6 +1116,7 @@ export default function CardapioClient({
           number: customer.number ?? payload.number,
           complement: customer.complement ?? payload.complement,
           neighborhood: customer.neighborhood ?? payload.neighborhood,
+          zipCode: customer.zip_code ?? payload.zipCode,
           reference: customer.reference ?? payload.reference,
         })
       }
@@ -1102,11 +1164,11 @@ export default function CardapioClient({
         !Number.isFinite(
           numericChange
         ) ||
-        numericChange <= cartTotal
+        numericChange <= orderTotal
       ) {
         setCustomerError(
           `O valor para troco precisa ser maior que ${formatPrice(
-            cartTotal
+          orderTotal
           )}.`
         )
 
@@ -1124,172 +1186,111 @@ export default function CardapioClient({
    * =========================================================
    */
 
-  function buildWhatsAppMessage() {
+  function buildWhatsAppMessage(order: PersistedOrder) {
     const lines: string[] = []
-
-    lines.push(
-      '🍔 *NOVO PEDIDO — BRASÃO BURGER*'
-    )
-
+    lines.push('*NOVO PEDIDO - BRASAO BURGER*')
+    lines.push(`Pedido: ${order.id}`)
     lines.push('')
     lines.push('*ITENS DO PEDIDO*')
-
-    cart.forEach((item) => {
-      const itemTotal =
-        Number(
-          item.product.price
-        ) *
-        item.quantity
-
-      lines.push(
-        `${item.quantity}x ${item.product.name} — ${formatPrice(
-          itemTotal
-        )}`
-      )
+    order.items.forEach((item) => {
+      lines.push(`${item.quantity}x ${item.name} - ${formatPrice(item.lineTotal)}`)
     })
-
     lines.push('')
-    lines.push(
-      `*TOTAL: ${formatPrice(
-        cartTotal
-      )}*`
-    )
-
+    lines.push(`Subtotal: ${formatPrice(order.subtotal)}`)
+    if (order.deliveryMethod === 'delivery') {
+      lines.push(`Taxa de entrega: ${order.deliveryFee === 0 ? 'Gratis' : formatPrice(order.deliveryFee)}`)
+    }
+    lines.push(`*TOTAL: ${formatPrice(order.total)}*`)
     lines.push('')
     lines.push('*CLIENTE*')
-
-    lines.push(
-      `Nome: ${customerForm.name}`
-    )
-
-    lines.push(
-      `WhatsApp: ${formatPhone(
-        customerForm.phone
-      )}`
-    )
-
+    lines.push(`Nome: ${order.name}`)
+    lines.push(`WhatsApp: ${formatPhone(order.phone)}`)
     lines.push('')
     lines.push('*ENTREGA*')
-
-    if (
-      deliveryMethod ===
-      'delivery'
-    ) {
-      lines.push(
-        'Forma: Entrega'
-      )
-
-      lines.push(
-        `Endereço: ${customerForm.address}, ${customerForm.number}`
-      )
-
-      if (
-        customerForm.complement.trim()
-      ) {
-        lines.push(
-          `Complemento: ${customerForm.complement}`
-        )
-      }
-
-      lines.push(
-        `Bairro: ${customerForm.neighborhood}`
-      )
-
-      if (
-        customerForm.reference.trim()
-      ) {
-        lines.push(
-          `Referência: ${customerForm.reference}`
-        )
-      }
+    if (order.deliveryMethod === 'delivery') {
+      lines.push('Forma: Entrega')
+      lines.push(`Endereco: ${order.address}, ${order.number}`)
+      if (order.complement?.trim()) lines.push(`Complemento: ${order.complement}`)
+      lines.push(`Bairro: ${order.neighborhood}`)
+      if (order.zipCode) lines.push(`CEP: ${order.zipCode}`)
+      if (order.reference?.trim()) lines.push(`Referencia: ${order.reference}`)
     } else {
-      lines.push(
-        'Forma: Retirada no local'
-      )
+      lines.push('Forma: Retirada no local')
     }
-
     lines.push('')
     lines.push('*PAGAMENTO*')
-
-    if (
-      paymentMethod === 'pix'
-    ) {
-      lines.push(
-        'Forma: Pix'
-      )
-
-      if (
-        SITE_CONFIG.payment.pixKey
-      ) {
-        lines.push(
-          `Chave Pix: ${SITE_CONFIG.payment.pixKey}`
-        )
-      }
+    if (order.paymentMethod === 'pix') {
+      lines.push('Forma: Pix')
+      if (SITE_CONFIG.payment.pixKey) lines.push(`Chave Pix: ${SITE_CONFIG.payment.pixKey}`)
     }
-
-    if (
-      paymentMethod === 'card'
-    ) {
-      lines.push(
-        'Forma: Cartão'
-      )
+    if (order.paymentMethod === 'card') lines.push('Forma: Cartao')
+    if (order.paymentMethod === 'cash') {
+      lines.push('Forma: Dinheiro')
+      lines.push(order.changeFor !== null ? `Troco para: ${formatPrice(order.changeFor)}` : 'Sem necessidade de troco')
     }
-
-    if (
-      paymentMethod === 'cash'
-    ) {
-      lines.push(
-        'Forma: Dinheiro'
-      )
-
-      if (changeFor.trim()) {
-        lines.push(
-          `Troco para: R$ ${changeFor}`
-        )
-      } else {
-        lines.push(
-          'Sem necessidade de troco'
-        )
-      }
-    }
-
     lines.push('')
-    lines.push(
-      'Aguardo a confirmação do pedido. Obrigado!'
-    )
-
+    lines.push('Aguardo a confirmacao do pedido. Obrigado!')
     return lines.join('\n')
   }
 
-  /*
-   * =========================================================
-   * ENVIAR PEDIDO PARA WHATSAPP
-   * =========================================================
-   */
+  async function sendOrderToWhatsApp() {
+    if (cart.length === 0 || orderSaving) return
 
-  function sendOrderToWhatsApp() {
-    if (cart.length === 0) {
-      return
-    }
-
-    const message =
-      buildWhatsAppMessage()
-
-    const url = `https://wa.me/${SITE_CONFIG.whatsapp.number}?text=${encodeURIComponent(message)}`
-    const whatsappWindow = window.open(url, '_blank')
-
+    const whatsappWindow = window.open('about:blank', '_blank')
     if (!whatsappWindow) {
-      setCustomerError(
-        'Não foi possível abrir o WhatsApp. Permita a abertura de nova janela e tente novamente.'
-      )
+      setCustomerError('Nao foi possivel abrir o WhatsApp. Permita a abertura de nova janela e tente novamente.')
       return
     }
 
-    whatsappWindow.opener = null
+    setCustomerError('')
+    setOrderSaving(true)
+    const fingerprint = JSON.stringify({
+      items: cart.map(({ product, quantity }) => [product.id, quantity]),
+      deliveryMethod,
+      paymentMethod,
+      changeFor: paymentMethod === 'cash' ? changeFor.trim() : '',
+      customer: customerForm,
+    })
+    if (orderAttempt.current?.fingerprint !== fingerprint) {
+      orderAttempt.current = { fingerprint, key: crypto.randomUUID() }
+    }
 
-    clearCart()
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          idempotencyKey: orderAttempt.current.key,
+          deliveryMethod,
+          paymentMethod,
+          changeFor: paymentMethod === 'cash' ? changeFor.trim() : '',
+          customer: customerForm,
+          items: cart.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+        }),
+      })
+      const result = await response.json().catch(() => null)
+      if (!response.ok || !result?.order) {
+        throw new Error(typeof result?.error === 'string' ? result.error : 'Nao foi possivel salvar o pedido. Tente novamente.')
+      }
 
-    setCartOpen(false)
+      const order = result.order as PersistedOrder
+      const message = buildWhatsAppMessage(order)
+      const url = `https://wa.me/${SITE_CONFIG.whatsapp.number}?text=${encodeURIComponent(message)}`
+      whatsappWindow.opener = null
+      whatsappWindow.location.replace(url)
+      clearCart()
+      setCartOpen(false)
+    } catch (error) {
+      whatsappWindow.close()
+      setCustomerError(error instanceof Error ? error.message : 'Nao foi possivel salvar o pedido. Tente novamente.')
+    } finally {
+      setOrderSaving(false)
+    }
   }
 
   /*
@@ -1694,6 +1695,7 @@ export default function CardapioClient({
                     }
                     className={`
                       ${styles.productRow}
+                      ${!product.image_url ? styles.productRowNoImage : ''}
                       ${
                         product.featured
                           ? styles.featuredRow
@@ -1961,9 +1963,7 @@ export default function CardapioClient({
         >
 
           <div
-            className={
-              styles.modal
-            }
+            className={`${styles.modal} ${!selectedProduct.image_url ? styles.modalNoImage : ''}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="product-title"
@@ -2183,6 +2183,12 @@ export default function CardapioClient({
             role="dialog"
             aria-modal="true"
             aria-labelledby="cart-title"
+            onFocusCapture={(event) => {
+              const target = event.target
+              if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+                window.setTimeout(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250)
+              }
+            }}
           >
 
             {/* =================================================
@@ -2599,124 +2605,24 @@ export default function CardapioClient({
                   </span>
 
                   <h2>
-                    Seu WhatsApp
+                    Acesse seu cadastro
                   </h2>
 
                   <p>
-                    Confirme seu WhatsApp para
-                    consultar um cadastro salvo.
+                    Entre com sua conta Google para carregar os dados salvos. O login é opcional.
                   </p>
 
                 </div>
 
-                <div
-                  className={
-                    styles.customerForm
-                  }
-                >
-
-                  <label
-                    className={
-                      styles.customerField
-                    }
-                  >
-
-                    <span>
-                      WhatsApp
-                    </span>
-
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      autoComplete="tel"
-                      placeholder="(12) 99999-9999"
-                      value={formatPhone(
-                        customerForm.phone
-                      )}
-                      onChange={(
-                        event
-                      ) =>
-                        updateCustomerField(
-                          'phone',
-                          normalizePhone(
-                            event
-                              .target
-                              .value
-                          )
-                        )
-                      }
-                      autoFocus
-                    />
-
-                  </label>
-
-                  {customerError && (
-
-                    <p
-                      className={
-                        styles.customerError
-                      }
-                    >
-                      {
-                        customerError
-                      }
-                    </p>
-
-                  )}
-
-                  <button
-                    type="button"
-                    className={
-                      styles.customerPrimaryButton
-                    }
-                    onClick={searchCustomer}
-                    disabled={customerLoading}
-                  >
-                    {customerLoading
-                      ? 'Enviando código...'
-                      : verificationSent
-                        ? 'Reenviar código'
-                        : 'Enviar código'}
+                <div className={styles.customerForm}>
+                  <p>Entre com sua conta Google para carregar seus dados salvos. O login é opcional e não bloqueia o pedido.</p>
+                  {customerError && <p className={styles.customerError} role="status">{customerError}</p>}
+                  <button type="button" className={styles.customerPrimaryButton} onClick={signInWithGoogle} disabled={customerLoading}>
+                    {customerLoading ? 'Conectando...' : 'Continuar com Google'}
                   </button>
-
-                  {verificationSent && (
-                    <>
-                      <label className={styles.customerField}>
-                        <span>Código recebido por SMS</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={8}
-                          value={verificationCode}
-                          onChange={(event) => {
-                            setVerificationCode(event.target.value.replace(/\D/g, ''))
-                            setCustomerError('')
-                          }}
-                        />
-                      </label>
-
-                      <button
-                        type="button"
-                        className={styles.customerPrimaryButton}
-                        onClick={verifyCustomerPhone}
-                        disabled={customerLoading}
-                      >
-                        {customerLoading ? 'Verificando...' : 'Verificar e continuar →'}
-                      </button>
-                    </>
-                  )}
-
-                  {canContinueWithoutVerification && (
-                    <button
-                      type="button"
-                      className={styles.checkoutSecondaryButton}
-                      onClick={continueWithoutCustomerLookup}
-                    >
-                      Continuar preenchendo sem consultar cadastro
-                    </button>
-                  )}
-
+                  <button type="button" className={styles.checkoutSecondaryButton} onClick={continueWithoutSignIn} disabled={customerLoading}>
+                    Continuar sem entrar
+                  </button>
                 </div>
 
               </div>
@@ -3122,6 +3028,19 @@ export default function CardapioClient({
 
                       </div>
 
+                      <label className={styles.customerField}>
+                        <span>CEP</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="postal-code"
+                          placeholder="00000-000"
+                          maxLength={9}
+                          value={customerForm.zipCode}
+                          onChange={(event) => updateCustomerField('zipCode', event.target.value.replace(/\D/g, '').slice(0, 8))}
+                        />
+                      </label>
+
                       <label
                         className={
                           styles.customerField
@@ -3198,6 +3117,14 @@ export default function CardapioClient({
 
                   )}
 
+                  {deliveryMethod === 'delivery' && (customerForm.zipCode || customerForm.neighborhood) && (
+                    <div className={styles.orderTotals} aria-label="Resumo de entrega">
+                      <div><span>Subtotal</span><strong>{formatPrice(cartTotal)}</strong></div>
+                      <div><span>Taxa de entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : deliveryFee === null ? 'Endereço fora da área configurada' : formatPrice(deliveryFee)}</strong></div>
+                      <div className={styles.orderGrandTotal}><span>Total</span><strong>{formatPrice(orderTotal)}</strong></div>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     className={
@@ -3269,6 +3196,8 @@ export default function CardapioClient({
                     casa ou retirar no Brasão.
                   </p>
 
+
+                  {customerAccessToken && <button type="button" className={styles.customerEditButton} onClick={signOutCustomer}>Sair da conta Google</button>}
                 </div>
 
                 {customerError && (
@@ -3479,12 +3408,7 @@ export default function CardapioClient({
                   </h2>
 
                   <p>
-                    Total do pedido:{' '}
-                    <strong>
-                      {formatPrice(
-                        cartTotal
-                      )}
-                    </strong>
+                    Total do pedido: <strong>{formatPrice(orderTotal)}</strong>
                   </p>
 
                 </div>
@@ -3494,6 +3418,12 @@ export default function CardapioClient({
                     {customerError}
                   </p>
                 )}
+
+                <div className={styles.orderTotals} aria-label="Resumo do pedido">
+                  <div><span>Subtotal</span><strong>{formatPrice(cartTotal)}</strong></div>
+                  {deliveryMethod === 'delivery' && <div><span>Taxa de entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : deliveryFee === null ? 'Não calculada' : formatPrice(deliveryFee)}</strong></div>}
+                  <div className={styles.orderGrandTotal}><span>Total</span><strong>{formatPrice(orderTotal)}</strong></div>
+                </div>
 
                 <div
                   className={
@@ -3927,17 +3857,9 @@ export default function CardapioClient({
 
                   )}
 
-                  <div>
-                    <span>
-                      Total do pedido
-                    </span>
-
-                    <strong>
-                      {formatPrice(
-                        cartTotal
-                      )}
-                    </strong>
-                  </div>
+                  <div><span>Subtotal</span><strong>{formatPrice(cartTotal)}</strong></div>
+                  {deliveryMethod === 'delivery' && <div><span>Taxa de entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : deliveryFee === null ? 'Não calculada' : formatPrice(deliveryFee)}</strong></div>}
+                  <div><span>Total do pedido</span><strong>{formatPrice(orderTotal)}</strong></div>
 
                 </div>
 
@@ -4011,8 +3933,9 @@ export default function CardapioClient({
                   onClick={
                     sendOrderToWhatsApp
                   }
+                  disabled={orderSaving}
                 >
-                  Enviar pedido pelo WhatsApp →
+                  {orderSaving ? 'Salvando pedido...' : 'Enviar pedido pelo WhatsApp →'}
                 </button>
 
                 <button

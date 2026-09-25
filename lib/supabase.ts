@@ -35,7 +35,8 @@ function getSupabase() {
   return createClient(supabaseUrl, supabasePublishableKey, {
     auth: {
       autoRefreshToken: true,
-      persistSession: false,
+      // Keep OAuth sessions across navigation and browser restarts.
+      persistSession: true,
     },
   })
 }
