@@ -156,19 +156,46 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const verified = await getVerifiedPhone(request)
-    if (verified.error) return verified.error
+    if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type') ?? '')) {
+      return jsonError('Tipo de conteúdo inválido.', 415)
+    }
 
     let body: unknown
     try {
-      const rawBody = await request.text()
-      if (new TextEncoder().encode(rawBody).byteLength > 8_192) {
+      const contentLength = Number(request.headers.get('content-length'))
+      if (Number.isFinite(contentLength) && contentLength > 8_192) {
         return jsonError('Requisição muito grande.', 413)
       }
-      body = JSON.parse(rawBody)
+
+      const reader = request.body?.getReader()
+      if (!reader) return jsonError('Requisição inválida.', 400)
+
+      const chunks: Uint8Array[] = []
+      let totalBytes = 0
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        totalBytes += value.byteLength
+        if (totalBytes > 8_192) {
+          await reader.cancel()
+          return jsonError('Requisição muito grande.', 413)
+        }
+        chunks.push(value)
+      }
+
+      const bytes = new Uint8Array(totalBytes)
+      let offset = 0
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset)
+        offset += chunk.byteLength
+      }
+      body = JSON.parse(new TextDecoder().decode(bytes))
     } catch {
       return jsonError('Requisição inválida.', 400)
     }
+
+    const verified = await getVerifiedPhone(request)
+    if (verified.error) return verified.error
 
     const customer = readCustomerInput(body)
     if (!customer) return jsonError('Requisição inválida.', 400)
