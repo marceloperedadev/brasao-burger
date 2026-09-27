@@ -92,6 +92,14 @@ type Customer = {
   reference: string | null
 }
 
+function isPersistedCustomer(value: unknown, userId: string): value is Customer {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const customer = value as Record<string, unknown>
+  return customer.user_id === userId &&
+    typeof customer.name === 'string' && customer.name.trim().length > 0 &&
+    typeof customer.phone === 'string' && /^\d{10,11}$/.test(customer.phone)
+}
+
 type CustomerForm = {
   name: string
   phone: string
@@ -366,6 +374,7 @@ export default function CardapioClient({
 
   const [customerSaving, setCustomerSaving] =
     useState(false)
+  const customerSaveInFlight = useRef(false)
 
   const [orderSaving, setOrderSaving] =
     useState(false)
@@ -1365,15 +1374,23 @@ export default function CardapioClient({
 
     setCustomerError('')
 
-    const { data: sessionData } = await supabase.auth.getSession()
-    const accessToken = sessionData.session?.access_token
-    if (!accessToken || !customerAccessToken) {
-      setCheckoutStep('payment')
-      return
-    }
-
+    if (customerSaveInFlight.current) return
+    customerSaveInFlight.current = true
     setCustomerSaving(true)
     try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw new Error('Could not validate the customer session.')
+
+      const session = sessionData.session
+      const accessToken = session?.access_token
+      if (!accessToken) {
+        if (customerAccessToken) {
+          throw new Error('Customer session is no longer available.')
+        }
+        setCheckoutStep('payment')
+        return
+      }
+
       const response = await fetch('/api/customer', {
         method: 'POST',
         headers: {
@@ -1382,35 +1399,36 @@ export default function CardapioClient({
         },
         body: JSON.stringify(payload),
       })
-      const result = await response.json()
+      const result: unknown = await response.json()
+      const savedCustomer = result && typeof result === 'object' && !Array.isArray(result) && 'customer' in result
+        ? result.customer
+        : null
 
-      if (!response.ok) {
-        throw new Error(result?.error ?? 'Não foi possível salvar o cadastro.')
+      if (!response.ok || !session?.user?.id || !isPersistedCustomer(savedCustomer, session.user.id)) {
+        throw new Error('Customer profile persistence was not confirmed.')
       }
 
-      if (result.customer) {
-        const customer = result.customer as Customer
-        setCustomerForm({
-          name: customer.name ?? payload.name,
-          phone: normalizePhone(customer.phone ?? phone),
-          address: customer.address ?? payload.address,
-          number: customer.number ?? payload.number,
-          complement: customer.complement ?? payload.complement,
-          neighborhood: customer.neighborhood ?? payload.neighborhood,
-          zipCode: customer.zip_code ?? payload.zipCode,
-          city: customer.city ?? payload.city,
-          state: customer.state ?? payload.state,
-          reference: customer.reference ?? payload.reference,
-        })
-      }
-    } catch (error) {
-      console.error('Falha ao salvar cadastro verificado.', error)
+      setCustomerForm({
+        name: savedCustomer.name,
+        phone: normalizePhone(savedCustomer.phone),
+        address: savedCustomer.address ?? payload.address,
+        number: savedCustomer.number ?? payload.number,
+        complement: savedCustomer.complement ?? payload.complement,
+        neighborhood: savedCustomer.neighborhood ?? payload.neighborhood,
+        zipCode: savedCustomer.zip_code ?? payload.zipCode,
+        city: savedCustomer.city ?? payload.city,
+        state: savedCustomer.state ?? payload.state,
+        reference: savedCustomer.reference ?? payload.reference,
+      })
+      setCheckoutStep('payment')
+    } catch {
+      console.error('Falha técnica ao persistir perfil do cliente.')
       setCustomerError(
-        'O cadastro não foi salvo agora. Você ainda pode enviar este pedido pelo WhatsApp.'
+        'Não foi possível salvar os dados do cliente. Verifique sua conexão e tente novamente.'
       )
     } finally {
+      customerSaveInFlight.current = false
       setCustomerSaving(false)
-      setCheckoutStep('payment')
     }
   }
 
@@ -1643,7 +1661,6 @@ export default function CardapioClient({
       const order = result.order as PersistedOrder
       const message = buildWhatsAppMessage(order)
       const url = `https://wa.me/${SITE_CONFIG.whatsapp.number}?text=${encodeURIComponent(message)}`
-      whatsappWindow.opener = null
       whatsappWindow.location.replace(url)
       orderAttempt.current = null
       try {
