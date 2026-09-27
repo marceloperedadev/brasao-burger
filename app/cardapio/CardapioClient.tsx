@@ -12,7 +12,7 @@ import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { SITE_CONFIG } from '@/app/config/site'
-import { calculateDeliveryFee, parseDeliveryFees } from '@/lib/delivery-fees'
+import { calculateOrderTotal, resolveDeliveryQuote, type DeliveryConfig } from '@/lib/delivery-zones'
 import { supabase } from '@/lib/supabase'
 import styles from './Cardapio.module.css'
 
@@ -40,6 +40,24 @@ type CartItem = {
   quantity: number
 }
 
+const MAX_ITEM_QUANTITY = 999
+
+function isStoredCartItem(value: unknown): value is CartItem {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const item = value as Record<string, unknown>
+  if (!Number.isInteger(item.quantity) || Number(item.quantity) < 1 || Number(item.quantity) > MAX_ITEM_QUANTITY) return false
+  if (!item.product || typeof item.product !== 'object' || Array.isArray(item.product)) return false
+
+  const product = item.product as Record<string, unknown>
+  return Number.isSafeInteger(product.id) && Number(product.id) > 0 &&
+    Number.isSafeInteger(product.category_id) && typeof product.name === 'string' &&
+    (product.description === null || typeof product.description === 'string') &&
+    Number.isFinite(Number(product.price)) && Number(product.price) >= 0 &&
+    (product.image_url === null || typeof product.image_url === 'string') &&
+    typeof product.featured === 'boolean' && typeof product.available === 'boolean' &&
+    Number.isSafeInteger(product.sort_order)
+}
+
 type PersistedOrder = {
   id: string
   name: string
@@ -56,11 +74,12 @@ type PersistedOrder = {
   subtotal: number
   deliveryFee: number
   total: number
+  deliveryZone?: string | null
   items: Array<{ productId: number; name: string; quantity: number; unitPrice: number; lineTotal: number }>
 }
 
 type Customer = {
-  id: number
+  user_id: string
   name: string
   phone: string
   address: string | null
@@ -68,6 +87,8 @@ type Customer = {
   complement: string | null
   neighborhood: string | null
   zip_code: string | null
+  city: string | null
+  state: string | null
   reference: string | null
 }
 
@@ -79,6 +100,8 @@ type CustomerForm = {
   complement: string
   neighborhood: string
   zipCode: string
+  city: string
+  state: string
   reference: string
 }
 
@@ -176,48 +199,41 @@ function getHoursSnapshot() {
 
 function getTodayHoursStatus(): HoursStatus {
   const now = new Date()
+  const nowMinutes =
+    now.getHours() * 60 +
+    now.getMinutes()
+  const todayIndex = now.getDay()
+  const today = SITE_CONFIG.openingHours[WEEKDAY_KEYS[todayIndex]]
+  const previous = SITE_CONFIG.openingHours[WEEKDAY_KEYS[(todayIndex + 6) % 7]]
+  const toMinutes = (value: string) => {
+    const [hours, minutes] = value.split(':').map(Number)
+    return hours * 60 + minutes
+  }
 
-  const dayKey =
-    WEEKDAY_KEYS[now.getDay()]
+  // Friday's service runs into Saturday morning. Sunday 01:00 is explicitly
+  // treated as closed by the confirmed business-hours examples.
+  if (todayIndex === 6 && previous && !previous.closed && previous.open && previous.close) {
+    const previousOpen = toMinutes(previous.open)
+    const previousClose = toMinutes(previous.close)
+    if (previousClose <= previousOpen && nowMinutes < previousClose) {
+      return {
+        isOpen: true,
+        label: `Aberto agora · fecha às ${previous.close}`,
+      }
+    }
+  }
 
-  const today =
-    SITE_CONFIG.openingHours[dayKey]
-
-  if (
-    !today ||
-    today.closed ||
-    !today.open ||
-    !today.close
-  ) {
+  if (!today || today.closed || !today.open || !today.close) {
     return {
       isOpen: false,
       label: 'Fechado hoje',
     }
   }
 
-  const [openHour, openMinute] =
-    today.open
-      .split(':')
-      .map(Number)
-
-  const [closeHour, closeMinute] =
-    today.close
-      .split(':')
-      .map(Number)
-
-  const nowMinutes =
-    now.getHours() * 60 +
-    now.getMinutes()
-
-  const openMinutes =
-    openHour * 60 + openMinute
-
-  const closeMinutes =
-    closeHour * 60 + closeMinute
-
-  const isOpen =
-    nowMinutes >= openMinutes &&
-    nowMinutes < closeMinutes
+  const openMinutes = toMinutes(today.open)
+  const closeMinutes = toMinutes(today.close)
+  const crossesMidnight = closeMinutes <= openMinutes
+  const isOpen = nowMinutes >= openMinutes && (crossesMidnight || nowMinutes < closeMinutes)
 
   if (isOpen) {
     return {
@@ -244,8 +260,6 @@ type Props = {
   products: Product[]
 }
 
-const DELIVERY_FEES = parseDeliveryFees(process.env.NEXT_PUBLIC_DELIVERY_FEES)
-
 export default function CardapioClient({
   categories,
   products,
@@ -255,6 +269,12 @@ export default function CardapioClient({
   const oauthReturn = searchParams.get('oauth') === 'google'
   const oauthCallbackHandled = useRef(false)
   const orderAttempt = useRef<{ fingerprint: string; key: string } | null>(null)
+  const orderSubmissionInFlight = useRef(false)
+  const categoryNavRef = useRef<HTMLDivElement>(null)
+  const categorySwipeStart = useRef<{ x: number; y: number } | null>(null)
+  const productDialogRef = useRef<HTMLDivElement>(null)
+  const cartDialogRef = useRef<HTMLElement>(null)
+  const dialogOpenerRef = useRef<HTMLElement | null>(null)
 
   /*
    * =========================================================
@@ -292,6 +312,8 @@ export default function CardapioClient({
 
   const [cartHydrated, setCartHydrated] = useState(false)
 
+  const [cartNotice, setCartNotice] = useState('')
+
   const [cartOpen, setCartOpen] =
     useState(false)
 
@@ -321,6 +343,8 @@ export default function CardapioClient({
       complement: '',
       neighborhood: '',
       zipCode: '',
+      city: '',
+      state: '',
       reference: '',
     })
 
@@ -329,6 +353,13 @@ export default function CardapioClient({
 
   const [customerAccessToken, setCustomerAccessToken] =
     useState('')
+
+  const [authReady, setAuthReady] = useState(false)
+  const [authenticatedName, setAuthenticatedName] = useState('')
+  const [zipLookupStatus, setZipLookupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig | null>(null)
+  const [deliveryConfigStatus, setDeliveryConfigStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const zipLookupSequence = useRef(0)
 
   const [customerLoading, setCustomerLoading] =
     useState(false)
@@ -560,6 +591,7 @@ export default function CardapioClient({
   function openProduct(
     product: Product
   ) {
+    dialogOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setSelectedProduct(product)
     setQuantity(1)
   }
@@ -569,9 +601,14 @@ export default function CardapioClient({
     setQuantity(1)
   }
 
+  function openCart() {
+    dialogOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setCartOpen(true)
+  }
+
   function increaseQuantity() {
     setQuantity(
-      (current) => current + 1
+      (current) => Math.min(MAX_ITEM_QUANTITY, current + 1)
     )
   }
 
@@ -594,6 +631,9 @@ export default function CardapioClient({
     product: Product,
     amount = 1
   ) {
+    const safeAmount = Number.isInteger(amount)
+      ? Math.min(MAX_ITEM_QUANTITY, Math.max(1, amount))
+      : 1
     setCart((currentCart) => {
       const existingItem =
         currentCart.find(
@@ -610,8 +650,7 @@ export default function CardapioClient({
               ? {
                   ...item,
                   quantity:
-                    item.quantity +
-                    amount,
+                    Math.min(MAX_ITEM_QUANTITY, item.quantity + safeAmount),
                 }
               : item
         )
@@ -621,7 +660,7 @@ export default function CardapioClient({
         ...currentCart,
         {
           product,
-          quantity: amount,
+          quantity: safeAmount,
         },
       ]
     })
@@ -657,7 +696,7 @@ export default function CardapioClient({
             ? {
                 ...item,
                 quantity:
-                  item.quantity + 1,
+                  Math.min(MAX_ITEM_QUANTITY, item.quantity + 1),
               }
             : item
       )
@@ -707,6 +746,7 @@ export default function CardapioClient({
   function clearCart() {
     orderAttempt.current = null
     setCart([])
+    setCartNotice('')
 
     setCheckoutStep('cart')
 
@@ -726,6 +766,8 @@ export default function CardapioClient({
       complement: '',
       neighborhood: '',
       zipCode: '',
+      city: '',
+      state: '',
       reference: '',
     })
 
@@ -760,12 +802,45 @@ export default function CardapioClient({
     [cart]
   )
 
-  const deliveryFee = useMemo(() => {
-    if (deliveryMethod === 'pickup') return 0
-    return calculateDeliveryFee(DELIVERY_FEES, customerForm.zipCode, customerForm.neighborhood)
-  }, [customerForm.neighborhood, customerForm.zipCode, deliveryMethod])
+  const deliveryQuote = useMemo(
+    () => resolveDeliveryQuote(deliveryMethod, customerForm.city, customerForm.state, customerForm.neighborhood, deliveryConfig),
+    [customerForm.city, customerForm.neighborhood, customerForm.state, deliveryConfig, deliveryMethod]
+  )
+  const deliveryFee = deliveryQuote.ok ? deliveryQuote.fee : null
+  const deliveryFailureReason = deliveryQuote.ok ? null : deliveryQuote.reason
+  const orderTotal = calculateOrderTotal(cartTotal, deliveryFee ?? 0) ?? cartTotal
+  const displayedOrderTotal = deliveryMethod === 'delivery' && deliveryFee === null ? '—' : formatPrice(orderTotal)
+  const displayedDeliveryFee = deliveryQuote.ok
+    ? formatPrice(deliveryQuote.fee)
+    : deliveryConfigStatus === 'loading' ? 'Carregando configuração…'
+      : deliveryConfigStatus === 'error' || deliveryQuote.reason === 'unavailable' ? 'Indisponível'
+        : deliveryQuote.reason === 'disabled' ? 'Entrega desativada'
+          : deliveryQuote.reason === 'outside_area' ? 'Fora da área atendida'
+            : deliveryQuote.reason === 'zone_not_found' ? 'Bairro sem zona configurada'
+              : deliveryQuote.reason === 'ambiguous_zone' ? 'Zona precisa de revisão'
+                : deliveryQuote.reason === 'manual_confirmation_required' ? 'Endereço exige confirmação manual'
+                  : deliveryQuote.reason === 'not_ready' ? 'Entrega ainda não configurada'
+                  : 'Configuração inválida'
 
-  const orderTotal = Math.round((cartTotal + (deliveryFee ?? 0)) * 100) / 100
+  useEffect(() => {
+    let active = true
+    void fetch('/api/delivery-config', { cache: 'no-store' })
+      .then(async (response) => {
+        const result = await response.json()
+        if (!response.ok || !result?.config) throw new Error(result?.error ?? 'Delivery configuration unavailable.')
+        return result.config as DeliveryConfig
+      })
+      .then((config) => {
+        if (!active) return
+        setDeliveryConfig(config)
+        setDeliveryConfigStatus('ready')
+      })
+      .catch((error) => {
+        console.error('Falha ao carregar configuração de entrega.', error)
+        if (active) setDeliveryConfigStatus('error')
+      })
+    return () => { active = false }
+  }, [])
 
   /*
    * =========================================================
@@ -791,6 +866,36 @@ export default function CardapioClient({
     setActiveCategory(slug)
   }
 
+  useEffect(() => {
+    const nav = categoryNavRef.current
+    const activeButton = Array.from(
+      nav?.querySelectorAll<HTMLButtonElement>('[data-category]') ?? []
+    ).find((button) => button.dataset.category === activeCategory)
+    if (!nav || !activeButton) return
+
+    const navBounds = nav.getBoundingClientRect()
+    const buttonBounds = activeButton.getBoundingClientRect()
+    if (buttonBounds.left < navBounds.left) {
+      nav.scrollBy({ left: buttonBounds.left - navBounds.left - 12, behavior: 'smooth' })
+    } else if (buttonBounds.right > navBounds.right) {
+      nav.scrollBy({ left: buttonBounds.right - navBounds.right + 12, behavior: 'smooth' })
+    }
+  }, [activeCategory])
+
+  function finishCategorySwipe(x: number, y: number) {
+    const start = categorySwipeStart.current
+    categorySwipeStart.current = null
+    if (!start) return
+
+    const deltaX = x - start.x
+    const deltaY = y - start.y
+    if (Math.abs(deltaX) < 64 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return
+
+    const currentIndex = categories.findIndex((category) => category.slug === activeCategory)
+    const nextCategory = categories[currentIndex + (deltaX < 0 ? 1 : -1)]
+    if (nextCategory) selectCategory(nextCategory.slug)
+  }
+
   /*
    * =========================================================
    * FORMULÁRIO
@@ -801,6 +906,9 @@ export default function CardapioClient({
     field: keyof CustomerForm,
     value: string
   ) {
+    if (field === 'zipCode') {
+      setZipLookupStatus('idle')
+    }
     setCustomerForm(
       (current) => ({
         ...current,
@@ -829,6 +937,46 @@ export default function CardapioClient({
     setShowCustomerForm(false)
     setCustomerAccessToken('')
     setCheckoutStep('phone')
+    void supabase.auth.getSession().then(({ data }) => {
+      const session = data.session
+      if (session?.access_token && session.user) {
+        setCustomerAccessToken(session.access_token)
+        setAuthenticatedName(
+          String(session.user.user_metadata?.full_name ?? session.user.user_metadata?.name ?? session.user.email ?? '')
+        )
+        setCustomerFound(false)
+        setShowCustomerForm(true)
+        setCheckoutStep('delivery')
+        setCartOpen(true)
+        void fetch('/api/customer', {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }).then(async (response) => {
+          const result = await response.json()
+          if (!response.ok) throw new Error(result?.error ?? 'Não foi possível carregar o perfil.')
+          const customer = result.customer as Customer | null
+          setCustomerFound(Boolean(customer))
+          setShowCustomerForm(!customer)
+          if (customer) setCustomerForm((current) => ({
+            ...current,
+            name: customer.name ?? current.name,
+            phone: normalizePhone(customer.phone ?? current.phone),
+            address: customer.address ?? current.address,
+            number: customer.number ?? current.number,
+            complement: customer.complement ?? current.complement,
+            neighborhood: customer.neighborhood ?? current.neighborhood,
+            zipCode: customer.zip_code ?? current.zipCode,
+            city: customer.city ?? current.city,
+            state: customer.state ?? current.state,
+            reference: customer.reference ?? current.reference,
+          }))
+        }).catch((error) => {
+          console.error('Falha ao carregar perfil do cliente.', error)
+          setCustomerError('Conta conectada, mas não foi possível carregar os dados salvos. Confira o cadastro antes de continuar.')
+          setShowCustomerForm(true)
+        })
+      }
+    }).catch((error) => console.error('Falha ao recuperar sessão Supabase.', error))
   }
 
   /*
@@ -880,9 +1028,45 @@ export default function CardapioClient({
     try {
       const saved = sessionStorage.getItem('brasao-checkout-cart')
       if (saved) {
-        const parsed = JSON.parse(saved) as CartItem[]
+        const parsed: unknown = JSON.parse(saved)
         frame = window.requestAnimationFrame(() => {
-          if (Array.isArray(parsed)) setCart(parsed)
+          if (!Array.isArray(parsed)) {
+            setCartNotice('O carrinho salvo não pôde ser validado e foi limpo. Confira seus itens antes de continuar.')
+            setCartHydrated(true)
+            return
+          }
+
+          let invalidCount = 0
+          let unavailableCount = 0
+          let changedPriceCount = 0
+          const reconciled: CartItem[] = []
+
+          for (const storedItem of parsed) {
+            if (!isStoredCartItem(storedItem)) {
+              invalidCount += 1
+              continue
+            }
+
+            const currentProduct = products.find((product) => product.id === storedItem.product.id)
+            if (!currentProduct || !currentProduct.available) {
+              unavailableCount += 1
+              continue
+            }
+
+            if (Math.round(Number(storedItem.product.price) * 100) !== Math.round(Number(currentProduct.price) * 100)) {
+              changedPriceCount += 1
+            }
+            reconciled.push({ product: currentProduct, quantity: storedItem.quantity })
+          }
+
+          setCart(reconciled)
+          const notices: string[] = []
+          if (changedPriceCount > 0) notices.push(`o preço de ${changedPriceCount} item(ns) foi atualizado`)
+          if (unavailableCount > 0) notices.push(`${unavailableCount} item(ns) indisponível(is) foi(ram) removido(s)`)
+          if (invalidCount > 0) notices.push(`${invalidCount} item(ns) inválido(s) foi(ram) removido(s)`)
+          if (notices.length > 0) {
+            setCartNotice(`Atualizamos seu carrinho: ${notices.join('; ')}. Confira os itens e o total antes de confirmar.`)
+          }
           setCartHydrated(true)
         })
       } else {
@@ -893,7 +1077,7 @@ export default function CardapioClient({
       frame = window.requestAnimationFrame(() => setCartHydrated(true))
     }
     return () => window.cancelAnimationFrame(frame)
-  }, [])
+  }, [products])
 
   useEffect(() => {
     if (!cartHydrated) return
@@ -928,6 +1112,8 @@ export default function CardapioClient({
             complement: customer.complement ?? '',
             neighborhood: customer.neighborhood ?? '',
             zipCode: customer.zip_code ?? '',
+            city: customer.city ?? '',
+            state: customer.state ?? '',
             reference: customer.reference ?? '',
           })
         }
@@ -980,11 +1166,56 @@ export default function CardapioClient({
       })
     }
 
-    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') setCustomerAccessToken('')
+    let active = true
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!active) return
+      setCustomerAccessToken(data.session?.access_token ?? '')
+      setAuthenticatedName(String(data.session?.user.user_metadata?.full_name ?? data.session?.user.user_metadata?.name ?? data.session?.user.email ?? ''))
+      setAuthReady(true)
+    }).catch((error) => {
+      console.error('Falha ao recuperar sessão Supabase.', error)
+      if (active) setAuthReady(true)
     })
-    return () => listener.subscription.unsubscribe()
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return
+      setCustomerAccessToken(session?.access_token ?? '')
+      setAuthenticatedName(String(session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name ?? session?.user.email ?? ''))
+      if (event === 'SIGNED_OUT') {
+        setCustomerFound(false)
+        setShowCustomerForm(true)
+        setCustomerForm({ name: '', phone: '', address: '', number: '', complement: '', neighborhood: '', zipCode: '', city: '', state: '', reference: '' })
+      }
+    })
+    return () => { active = false; listener.subscription.unsubscribe() }
   }, [oauthReturn])
+
+  useEffect(() => {
+    const zip = customerForm.zipCode.replace(/\D/g, '')
+    const sequence = ++zipLookupSequence.current
+    if (zip.length !== 8) return
+    const timer = window.setTimeout(() => {
+      setZipLookupStatus('loading')
+      void fetch(`https://viacep.com.br/ws/${zip}/json/`)
+        .then((response) => {
+          if (!response.ok) throw new Error('CEP indisponível')
+          return response.json()
+        })
+        .then((result: { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string }) => {
+          if (sequence !== zipLookupSequence.current) return
+          if (result.erro || !result.localidade || !result.uf) throw new Error('CEP não encontrado')
+          setCustomerForm((current) => ({
+            ...current,
+            address: result.logradouro || current.address,
+            neighborhood: result.bairro || current.neighborhood,
+            city: result.localidade || current.city,
+            state: result.uf || current.state,
+          }))
+          setZipLookupStatus('done')
+        })
+        .catch(() => { if (sequence === zipLookupSequence.current) setZipLookupStatus('error') })
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [customerForm.zipCode])
 
   /*
    * =========================================================
@@ -1027,6 +1258,8 @@ export default function CardapioClient({
         customerForm.neighborhood.trim(),
 
       zipCode: customerForm.zipCode.replace(/\D/g, ''),
+      city: customerForm.city.trim(),
+      state: customerForm.state.trim().toUpperCase(),
 
       reference:
         customerForm.reference.trim(),
@@ -1049,6 +1282,14 @@ export default function CardapioClient({
     }
 
     if (requiresAddress) {
+      if (zipLookupStatus === 'loading') {
+        setCustomerError('Aguarde a consulta do CEP terminar antes de continuar.')
+        return
+      }
+      if (payload.zipCode.length === 8 && zipLookupStatus === 'idle') {
+        setCustomerError('Aguarde a consulta automática do CEP terminar antes de continuar.')
+        return
+      }
       if (!payload.address) {
         setCustomerError(
           'Digite seu endereço.'
@@ -1074,6 +1315,46 @@ export default function CardapioClient({
       }
       if (payload.zipCode.length !== 8) {
         setCustomerError('Informe um CEP válido com 8 dígitos.')
+        return
+      }
+      if (!payload.city || !/^[A-Z]{2}$/.test(payload.state)) {
+        setCustomerError('Informe a cidade e o estado do endereço.')
+        return
+      }
+      if (deliveryFee === null && deliveryConfigStatus === 'loading') {
+        setCustomerError('Aguarde o carregamento da configuração de entrega.')
+        return
+      }
+      if (deliveryFee === null && deliveryConfigStatus === 'error') {
+        setCustomerError('Não foi possível carregar a configuração de entrega. Tente novamente mais tarde.')
+        return
+      }
+      if (deliveryFee === null && !deliveryConfig?.enabled) {
+        setCustomerError('A entrega está temporariamente indisponível.')
+        return
+      }
+      if (deliveryFee === null && deliveryFailureReason === 'zone_not_found') {
+        setCustomerError('Esse bairro ainda não possui uma zona de entrega configurada.')
+        return
+      }
+      if (deliveryFee === null && deliveryFailureReason === 'ambiguous_zone') {
+        setCustomerError('A configuração das zonas de entrega precisa ser revisada.')
+        return
+      }
+      if (deliveryFee === null && deliveryFailureReason === 'manual_confirmation_required') {
+        setCustomerError('Este endereço exige confirmação manual da loja antes de finalizar o pedido.')
+        return
+      }
+      if (deliveryFee === null && deliveryFailureReason === 'not_ready') {
+        setCustomerError('A entrega ainda não foi configurada para aceitar pedidos.')
+        return
+      }
+      if (deliveryFee === null && deliveryFailureReason === 'invalid') {
+        setCustomerError('A configuração da entrega está inválida. Tente novamente mais tarde.')
+        return
+      }
+      if (deliveryFee === null && deliveryFailureReason === 'outside_area' && deliveryConfig) {
+        setCustomerError(`A entrega atende somente ${deliveryConfig.serviceCity}, ${deliveryConfig.serviceState}.`)
         return
       }
       if (deliveryFee === null) {
@@ -1117,6 +1398,8 @@ export default function CardapioClient({
           complement: customer.complement ?? payload.complement,
           neighborhood: customer.neighborhood ?? payload.neighborhood,
           zipCode: customer.zip_code ?? payload.zipCode,
+          city: customer.city ?? payload.city,
+          state: customer.state ?? payload.state,
           reference: customer.reference ?? payload.reference,
         })
       }
@@ -1198,7 +1481,7 @@ export default function CardapioClient({
     lines.push('')
     lines.push(`Subtotal: ${formatPrice(order.subtotal)}`)
     if (order.deliveryMethod === 'delivery') {
-      lines.push(`Taxa de entrega: ${order.deliveryFee === 0 ? 'Gratis' : formatPrice(order.deliveryFee)}`)
+    lines.push(`${order.deliveryZone ? `Zona: ${order.deliveryZone} · ` : ''}Taxa de entrega: ${formatPrice(order.deliveryFee)}`)
     }
     lines.push(`*TOTAL: ${formatPrice(order.total)}*`)
     lines.push('')
@@ -1234,7 +1517,11 @@ export default function CardapioClient({
   }
 
   async function sendOrderToWhatsApp() {
-    if (cart.length === 0 || orderSaving) return
+    if (cart.length === 0 || orderSaving || orderSubmissionInFlight.current) return
+    if (cart.some(({ quantity }) => !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_ITEM_QUANTITY)) {
+      setCustomerError('Cada produto deve ter entre 1 e 999 unidades. Revise o carrinho antes de continuar.')
+      return
+    }
 
     const whatsappWindow = window.open('about:blank', '_blank')
     if (!whatsappWindow) {
@@ -1243,19 +1530,45 @@ export default function CardapioClient({
     }
 
     setCustomerError('')
+    orderSubmissionInFlight.current = true
     setOrderSaving(true)
+    try {
     const fingerprint = JSON.stringify({
-      items: cart.map(({ product, quantity }) => [product.id, quantity]),
+      items: cart.map(({ product, quantity }) => [product.id, quantity, Math.round(Number(product.price) * 100)]),
       deliveryMethod,
       paymentMethod,
       changeFor: paymentMethod === 'cash' ? changeFor.trim() : '',
       customer: customerForm,
+      expectedDeliveryQuote: deliveryMethod === 'delivery' && deliveryQuote.ok && deliveryQuote.zone
+        ? { feeCents: Math.round(deliveryQuote.fee * 100), zoneKey: deliveryQuote.zone.zoneKey }
+        : null,
     })
-    if (orderAttempt.current?.fingerprint !== fingerprint) {
-      orderAttempt.current = { fingerprint, key: crypto.randomUUID() }
+    const fingerprintBytes = new TextEncoder().encode(fingerprint)
+    const fingerprintDigest = await crypto.subtle.digest('SHA-256', fingerprintBytes)
+    const fingerprintHash = Array.from(new Uint8Array(fingerprintDigest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+    if (orderAttempt.current?.fingerprint !== fingerprintHash) {
+      let storedAttempt: unknown = null
+      try {
+        storedAttempt = JSON.parse(sessionStorage.getItem('brasao-order-attempt') ?? 'null')
+      } catch {
+        // Continue with an in-memory key when session storage is unavailable.
+      }
+      const stored = storedAttempt && typeof storedAttempt === 'object'
+        ? storedAttempt as Record<string, unknown>
+        : null
+      const storedKeyIsValid = typeof stored?.key === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(stored.key)
+      const key = stored?.fingerprint === fingerprintHash && storedKeyIsValid
+        ? stored.key as string
+        : crypto.randomUUID()
+      orderAttempt.current = { fingerprint: fingerprintHash, key }
+      try {
+        sessionStorage.setItem('brasao-order-attempt', JSON.stringify({ fingerprint: fingerprintHash, key }))
+      } catch {
+        // The in-memory key still protects retries until this page is closed.
+      }
     }
 
-    try {
       const { data: sessionData } = await supabase.auth.getSession()
       const token = sessionData.session?.access_token
       const response = await fetch('/api/orders', {
@@ -1270,10 +1583,59 @@ export default function CardapioClient({
           paymentMethod,
           changeFor: paymentMethod === 'cash' ? changeFor.trim() : '',
           customer: customerForm,
-          items: cart.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+          expectedDeliveryQuote: deliveryMethod === 'delivery' && deliveryQuote.ok && deliveryQuote.zone
+            ? { feeCents: Math.round(deliveryQuote.fee * 100), zoneKey: deliveryQuote.zone.zoneKey }
+            : null,
+          items: cart.map(({ product, quantity }) => ({
+            productId: product.id,
+            quantity,
+            expectedUnitPriceCents: Math.round(Number(product.price) * 100),
+          })),
         }),
       })
       const result = await response.json().catch(() => null)
+      if (response.status === 409 && result?.error === 'DELIVERY_QUOTE_CHANGED' && result.config && result.currentQuote) {
+        setDeliveryConfig(result.config as DeliveryConfig)
+        setDeliveryConfigStatus('ready')
+        if (result.verifiedAddress && typeof result.verifiedAddress === 'object') {
+          setCustomerForm((current) => ({
+            ...current,
+            city: typeof result.verifiedAddress.city === 'string' ? result.verifiedAddress.city : current.city,
+            state: typeof result.verifiedAddress.state === 'string' ? result.verifiedAddress.state : current.state,
+            neighborhood: typeof result.verifiedAddress.neighborhood === 'string' ? result.verifiedAddress.neighborhood : current.neighborhood,
+          }))
+        }
+        const currentFee = Number(result.currentQuote.fee)
+        const currentZone = typeof result.currentQuote.zoneName === 'string' ? result.currentQuote.zoneName : 'atualizada'
+        setCustomerError(`A cotaÃ§Ã£o de entrega mudou. A nova taxa para ${currentZone} Ã© ${Number.isFinite(currentFee) ? formatPrice(currentFee) : 'indisponÃ­vel'}. Confira o endereÃ§o e confirme novamente.`)
+        setCheckoutStep('delivery')
+        whatsappWindow.close()
+        return
+      }
+      if (response.status === 409 && result?.error === 'MENU_CHANGED' && Array.isArray(result.products)) {
+        const currentProducts = new Map<number, Product>()
+        const unavailableIds = new Set<number>()
+        for (const value of result.products) {
+          if (!value || typeof value !== 'object') continue
+          const product = value as Record<string, unknown>
+          if (!Number.isSafeInteger(product.id)) continue
+          if (product.available === false) {
+            unavailableIds.add(Number(product.id))
+          } else if (product.available === true && Number.isSafeInteger(product.category_id) && typeof product.name === 'string') {
+            currentProducts.set(Number(product.id), product as unknown as Product)
+          }
+        }
+        setCart((current) => current.flatMap((item) => {
+          if (unavailableIds.has(item.product.id)) return []
+          const currentProduct = currentProducts.get(item.product.id)
+          return currentProduct ? [{ ...item, product: currentProduct }] : [item]
+        }))
+        setCartNotice('O cardápio mudou enquanto você finalizava. Atualizamos os preços e removemos itens indisponíveis. Revise o carrinho antes de confirmar novamente.')
+        setCustomerError('O cardápio foi atualizado. Confira os itens e os valores antes de continuar.')
+        setCheckoutStep('cart')
+        whatsappWindow.close()
+        return
+      }
       if (!response.ok || !result?.order) {
         throw new Error(typeof result?.error === 'string' ? result.error : 'Nao foi possivel salvar o pedido. Tente novamente.')
       }
@@ -1283,12 +1645,19 @@ export default function CardapioClient({
       const url = `https://wa.me/${SITE_CONFIG.whatsapp.number}?text=${encodeURIComponent(message)}`
       whatsappWindow.opener = null
       whatsappWindow.location.replace(url)
+      orderAttempt.current = null
+      try {
+        sessionStorage.removeItem('brasao-order-attempt')
+      } catch {
+        // A later attempt in this tab will replace the stored fingerprint.
+      }
       clearCart()
       setCartOpen(false)
     } catch (error) {
       whatsappWindow.close()
       setCustomerError(error instanceof Error ? error.message : 'Nao foi possivel salvar o pedido. Tente novamente.')
     } finally {
+      orderSubmissionInFlight.current = false
       setOrderSaving(false)
     }
   }
@@ -1332,6 +1701,55 @@ export default function CardapioClient({
     selectedProduct,
     cartOpen,
   ])
+
+  useEffect(() => {
+    const dialog = selectedProduct ? productDialogRef.current : cartOpen ? cartDialogRef.current : null
+    if (!dialog) {
+      dialogOpenerRef.current?.focus({ preventScroll: true })
+      dialogOpenerRef.current = null
+      return
+    }
+
+    const getFocusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter((element) => element.getClientRects().length > 0)
+
+    const frame = window.requestAnimationFrame(() => {
+      const focusable = getFocusable()
+      ;(focusable[0] ?? dialog).focus({ preventScroll: true })
+    })
+    const handleTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const focusable = getFocusable()
+      if (focusable.length === 0) {
+        event.preventDefault()
+        dialog.focus()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', handleTab, true)
+    const handleFocus = (event: FocusEvent) => {
+      if (event.target instanceof Node && !dialog.contains(event.target)) {
+        const focusable = getFocusable()
+        ;(focusable[0] ?? dialog).focus({ preventScroll: true })
+      }
+    }
+    document.addEventListener('focusin', handleFocus, true)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', handleTab, true)
+      document.removeEventListener('focusin', handleFocus, true)
+    }
+  }, [selectedProduct, cartOpen])
 
   /*
    * =========================================================
@@ -1566,6 +1984,12 @@ export default function CardapioClient({
 
       </header>
 
+      {cartNotice && (
+        <p className={styles.cartNotice} role="status">
+          {cartNotice}
+        </p>
+      )}
+
       {/* =====================================================
           CATEGORIAS
           ===================================================== */}
@@ -1581,6 +2005,7 @@ export default function CardapioClient({
           className={
             styles.categoryNavInner
           }
+          ref={categoryNavRef}
         >
 
           {categories.map(
@@ -1589,6 +2014,7 @@ export default function CardapioClient({
               <button
                 key={category.id}
                 type="button"
+                data-category={category.slug}
                 className={`
                   ${styles.categoryLink}
                   ${
@@ -1632,6 +2058,17 @@ export default function CardapioClient({
             className={
               styles.categorySection
             }
+            onPointerDown={(event) => {
+              categorySwipeStart.current = event.pointerType === 'touch'
+                ? { x: event.clientX, y: event.clientY }
+                : null
+            }}
+            onPointerUp={(event) => {
+              if (event.pointerType === 'touch') finishCategorySwipe(event.clientX, event.clientY)
+            }}
+            onPointerCancel={() => {
+              categorySwipeStart.current = null
+            }}
           >
 
             <div
@@ -1876,9 +2313,7 @@ export default function CardapioClient({
               className={
                 styles.cartBar
               }
-              onClick={() =>
-                setCartOpen(true)
-              }
+                onClick={openCart}
               aria-label="Abrir carrinho"
             >
 
@@ -1963,10 +2398,12 @@ export default function CardapioClient({
         >
 
           <div
+            ref={productDialogRef}
             className={`${styles.modal} ${!selectedProduct.image_url ? styles.modalNoImage : ''}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="product-title"
+            tabIndex={-1}
           >
 
             <button
@@ -2087,6 +2524,7 @@ export default function CardapioClient({
                     onClick={
                       increaseQuantity
                     }
+                    disabled={quantity >= MAX_ITEM_QUANTITY}
                     aria-label="Aumentar quantidade"
                   >
                     +
@@ -2177,12 +2615,14 @@ export default function CardapioClient({
         >
 
           <aside
+            ref={cartDialogRef}
             className={
               styles.cartPanel
             }
             role="dialog"
             aria-modal="true"
             aria-labelledby="cart-title"
+            tabIndex={-1}
             onFocusCapture={(event) => {
               const target = event.target
               if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
@@ -2292,6 +2732,12 @@ export default function CardapioClient({
               'cart' && (
 
               <>
+
+                {cartNotice && (
+                  <p className={styles.cartNotice} role="status">
+                    {cartNotice}
+                  </p>
+                )}
 
                 <div
                   className={
@@ -2433,6 +2879,7 @@ export default function CardapioClient({
                                       .id
                                   )
                                 }
+                                disabled={item.quantity >= MAX_ITEM_QUANTITY}
                                 aria-label={`Aumentar ${item.product.name}`}
                               >
                                 +
@@ -2615,12 +3062,14 @@ export default function CardapioClient({
                 </div>
 
                 <div className={styles.customerForm}>
+                  {authReady && customerAccessToken && <p role="status">Conta conectada{authenticatedName ? ` como ${authenticatedName}` : ''}. Os dados salvos serão carregados ao continuar.</p>}
+                  {!authReady && <p role="status">Verificando sua sessão…</p>}
                   <p>Entre com sua conta Google para carregar seus dados salvos. O login é opcional e não bloqueia o pedido.</p>
                   {customerError && <p className={styles.customerError} role="status">{customerError}</p>}
-                  <button type="button" className={styles.customerPrimaryButton} onClick={signInWithGoogle} disabled={customerLoading}>
+                  {authReady && !customerAccessToken && <button type="button" className={styles.customerPrimaryButton} onClick={signInWithGoogle} disabled={customerLoading}>
                     {customerLoading ? 'Conectando...' : 'Continuar com Google'}
-                  </button>
-                  <button type="button" className={styles.checkoutSecondaryButton} onClick={continueWithoutSignIn} disabled={customerLoading}>
+                  </button>}
+                  <button type="button" className={styles.checkoutSecondaryButton} onClick={continueWithoutSignIn} disabled={customerLoading || !authReady}>
                     Continuar sem entrar
                   </button>
                 </div>
@@ -3041,6 +3490,19 @@ export default function CardapioClient({
                         />
                       </label>
 
+                      <div className={styles.customerFieldGrid}>
+                        <label className={styles.customerField}>
+                          <span>Cidade</span>
+                          <input type="text" autoComplete="address-level2" value={customerForm.city} onChange={(event) => updateCustomerField('city', event.target.value)} />
+                        </label>
+                        <label className={styles.customerField}>
+                          <span>UF</span>
+                          <input type="text" autoComplete="address-level1" maxLength={2} value={customerForm.state} onChange={(event) => updateCustomerField('state', event.target.value.toUpperCase())} />
+                        </label>
+                      </div>
+                      {zipLookupStatus === 'loading' && <p role="status">Consultando CEP…</p>}
+                      {zipLookupStatus === 'error' && <p role="status">Não foi possível localizar o CEP automaticamente. Confira o endereço manualmente.</p>}
+
                       <label
                         className={
                           styles.customerField
@@ -3120,8 +3582,8 @@ export default function CardapioClient({
                   {deliveryMethod === 'delivery' && (customerForm.zipCode || customerForm.neighborhood) && (
                     <div className={styles.orderTotals} aria-label="Resumo de entrega">
                       <div><span>Subtotal</span><strong>{formatPrice(cartTotal)}</strong></div>
-                      <div><span>Taxa de entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : deliveryFee === null ? 'Endereço fora da área configurada' : formatPrice(deliveryFee)}</strong></div>
-                      <div className={styles.orderGrandTotal}><span>Total</span><strong>{formatPrice(orderTotal)}</strong></div>
+                      <div><span>{deliveryQuote.ok && deliveryQuote.zone ? `Zona: ${deliveryQuote.zone.name}` : 'Taxa de entrega'}</span><strong>{displayedDeliveryFee}</strong></div>
+                      <div className={styles.orderGrandTotal}><span>Total</span><strong>{displayedOrderTotal}</strong></div>
                     </div>
                   )}
 
@@ -3421,8 +3883,8 @@ export default function CardapioClient({
 
                 <div className={styles.orderTotals} aria-label="Resumo do pedido">
                   <div><span>Subtotal</span><strong>{formatPrice(cartTotal)}</strong></div>
-                  {deliveryMethod === 'delivery' && <div><span>Taxa de entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : deliveryFee === null ? 'Não calculada' : formatPrice(deliveryFee)}</strong></div>}
-                  <div className={styles.orderGrandTotal}><span>Total</span><strong>{formatPrice(orderTotal)}</strong></div>
+                  {deliveryMethod === 'delivery' && <div><span>{deliveryQuote.ok && deliveryQuote.zone ? `Zona: ${deliveryQuote.zone.name}` : 'Taxa de entrega'}</span><strong>{displayedDeliveryFee}</strong></div>}
+                  <div className={styles.orderGrandTotal}><span>Total</span><strong>{displayedOrderTotal}</strong></div>
                 </div>
 
                 <div
@@ -3858,8 +4320,8 @@ export default function CardapioClient({
                   )}
 
                   <div><span>Subtotal</span><strong>{formatPrice(cartTotal)}</strong></div>
-                  {deliveryMethod === 'delivery' && <div><span>Taxa de entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : deliveryFee === null ? 'Não calculada' : formatPrice(deliveryFee)}</strong></div>}
-                  <div><span>Total do pedido</span><strong>{formatPrice(orderTotal)}</strong></div>
+                  {deliveryMethod === 'delivery' && <div><span>{deliveryQuote.ok && deliveryQuote.zone ? `Zona: ${deliveryQuote.zone.name}` : 'Taxa de entrega'}</span><strong>{displayedDeliveryFee}</strong></div>}
+                  <div><span>Total do pedido</span><strong>{displayedOrderTotal}</strong></div>
 
                 </div>
 

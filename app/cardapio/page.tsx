@@ -1,5 +1,12 @@
+import type { Metadata } from 'next'
 import { supabase } from '@/lib/supabase'
 import CardapioClient from './CardapioClient'
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: '/cardapio',
+  },
+}
 
 export const dynamic = 'force-dynamic'
 

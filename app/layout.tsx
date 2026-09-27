@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 
 import './globals.css'
 
-const inter = Inter({
-  subsets: ['latin'],
+const inter = localFont({
+  src: './fonts/InterVariable.woff2',
   display: 'swap',
+  weight: '100 900',
+  style: 'normal',
 })
 
 // =========================================================
@@ -181,18 +183,14 @@ export default function RootLayout({
 
     image: `${SITE_URL}${OG_IMAGE}`,
 
-    telephone: '+5512991234567',
+    telephone: '+5512997093459',
 
     address: {
       '@type': 'PostalAddress',
 
-      streetAddress: 'Praça Santa Teresinha, 42',
-
       addressLocality: 'Taubaté',
 
       addressRegion: 'SP',
-
-      postalCode: '12020-100',
 
       addressCountry: 'BR',
     },
@@ -203,7 +201,7 @@ export default function RootLayout({
     },
 
     sameAs: [
-      'https://www.instagram.com/brasaoburguer_/',
+      'https://www.instagram.com/brasaoburger.taubate/',
     ],
 
     servesCuisine: [
@@ -215,20 +213,21 @@ export default function RootLayout({
 
     priceRange: '$$',
 
-    menu: 'https://wa.me/5512991234567',
+    menu: 'https://wa.me/5512997093459',
 
     openingHoursSpecification: [
       {
         '@type': 'OpeningHoursSpecification',
 
         dayOfWeek: [
+          'Monday',
           'Tuesday',
           'Wednesday',
           'Thursday',
         ],
 
         opens: '18:00',
-        closes: '23:00',
+        closes: '00:00',
       },
 
       {
@@ -240,7 +239,7 @@ export default function RootLayout({
         ],
 
         opens: '18:00',
-        closes: '23:30',
+        closes: '02:00',
       },
 
       {
@@ -249,7 +248,7 @@ export default function RootLayout({
         dayOfWeek: ['Sunday'],
 
         opens: '18:00',
-        closes: '23:00',
+        closes: '00:00',
       },
     ],
   }

@@ -2,11 +2,17 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 import { SITE_CONFIG } from '@/app/config/site'
-import { calculateDeliveryFee, parseDeliveryFees } from '@/lib/delivery-fees'
+import {
+  DELIVERY_ZONE_KEYS,
+  isDeliveryQuoteSnapshotCurrent,
+  loadDeliveryConfig,
+  resolveDeliveryQuote,
+  type DeliveryQuoteSnapshot,
+} from '@/lib/delivery-zones'
 
 type DeliveryMethod = 'delivery' | 'pickup'
 type PaymentMethod = 'pix' | 'cash' | 'card'
-type ItemInput = { productId: number; quantity: number }
+type ItemInput = { productId: number; quantity: number; expectedUnitPriceCents: number }
 type OrderInput = {
   idempotencyKey: string
   deliveryMethod: DeliveryMethod
@@ -20,6 +26,7 @@ type OrderInput = {
   zipCode: string
   reference: string
   changeFor: string
+  expectedDeliveryQuote: DeliveryQuoteSnapshot | null
   items: ItemInput[]
 }
 
@@ -28,6 +35,43 @@ function jsonError(message: string, status: number) {
     status,
     headers: { 'Cache-Control': 'no-store' },
   })
+}
+
+class RequestTooLargeError extends Error {}
+
+async function readRequestBody(request: Request, maxBytes: number): Promise<string> {
+  if (!request.body) return ''
+
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      totalBytes += value.byteLength
+      if (totalBytes > maxBytes) {
+        try {
+          await reader.cancel()
+        } catch {
+          // The size limit still takes precedence if stream cancellation fails.
+        }
+        throw new RequestTooLargeError()
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  const bytes = new Uint8Array(totalBytes)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(bytes)
 }
 
 function createAdminClient(): SupabaseClient {
@@ -78,11 +122,26 @@ function readInput(value: unknown): OrderInput | null {
     const record = item as Record<string, unknown>
     if (!Number.isSafeInteger(record.productId) || Number(record.productId) <= 0) return null
     if (!Number.isInteger(record.quantity) || Number(record.quantity) < 1 || Number(record.quantity) > 999) return null
-    items.push({ productId: Number(record.productId), quantity: Number(record.quantity) })
+    if (!Number.isSafeInteger(record.expectedUnitPriceCents) || Number(record.expectedUnitPriceCents) < 0) return null
+    items.push({
+      productId: Number(record.productId),
+      quantity: Number(record.quantity),
+      expectedUnitPriceCents: Number(record.expectedUnitPriceCents),
+    })
   }
 
   const idempotencyKey = text(body.idempotencyKey)
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) return null
+
+  let expectedDeliveryQuote: DeliveryQuoteSnapshot | null = null
+  if (body.expectedDeliveryQuote !== undefined && body.expectedDeliveryQuote !== null) {
+    if (!body.expectedDeliveryQuote || typeof body.expectedDeliveryQuote !== 'object' || Array.isArray(body.expectedDeliveryQuote)) return null
+    const quote = body.expectedDeliveryQuote as Record<string, unknown>
+    if (!Number.isSafeInteger(quote.feeCents) || Number(quote.feeCents) < 0 ||
+        typeof quote.zoneKey !== 'string' || !DELIVERY_ZONE_KEYS.includes(quote.zoneKey as (typeof DELIVERY_ZONE_KEYS)[number])) return null
+    expectedDeliveryQuote = { feeCents: Number(quote.feeCents), zoneKey: quote.zoneKey as DeliveryQuoteSnapshot['zoneKey'] }
+  }
+  if (body.deliveryMethod === 'delivery' && !expectedDeliveryQuote) return null
 
   const customer = body.customer
   if (!customer || typeof customer !== 'object' || Array.isArray(customer)) return null
@@ -115,6 +174,7 @@ function readInput(value: unknown): OrderInput | null {
     zipCode,
     reference: bounded(details.reference, 180),
     changeFor: bounded(body.changeFor, 24),
+    expectedDeliveryQuote,
     items,
   }
 }
@@ -140,10 +200,10 @@ export async function POST(request: Request) {
   try {
     const contentLength = Number(request.headers.get('content-length'))
     if (Number.isFinite(contentLength) && contentLength > 16_384) return jsonError('Request is too large.', 413)
-    const raw = await request.text()
-    if (new TextEncoder().encode(raw).byteLength > 16_384) return jsonError('Request is too large.', 413)
+    const raw = await readRequestBody(request, 16_384)
     body = JSON.parse(raw)
-  } catch {
+  } catch (error) {
+    if (error instanceof RequestTooLargeError) return jsonError('Request is too large.', 413)
     return jsonError('Invalid request body.', 400)
   }
 
@@ -174,13 +234,56 @@ export async function POST(request: Request) {
   }
 
   let deliveryFee: number
+  let verifiedNeighborhood = ''
+  let deliveryZoneName: string | null = null
   if (input.deliveryMethod === 'pickup') {
     deliveryFee = 0
   } else {
-    const fees = parseDeliveryFees(process.env.NEXT_PUBLIC_DELIVERY_FEES)
-    const configuredFee = calculateDeliveryFee(fees, input.zipCode, input.neighborhood)
-    if (configuredFee === null) return jsonError('Delivery is not configured for this address.', 422)
-    deliveryFee = configuredFee
+    try {
+      const settingsClient = createAdminClient()
+      const config = await loadDeliveryConfig(settingsClient)
+
+      const postalResponse = await fetch(`https://viacep.com.br/ws/${input.zipCode}/json/`, { cache: 'no-store' })
+      if (!postalResponse.ok) return jsonError('Could not validate the delivery ZIP code. Try again.', 503)
+      const postal = await postalResponse.json() as { erro?: boolean; localidade?: string; uf?: string; bairro?: string }
+      if (postal.erro || !postal.localidade || !postal.uf) return jsonError('Enter a valid delivery ZIP code.', 400)
+      const quote = resolveDeliveryQuote('delivery', postal.localidade, postal.uf, postal.bairro ?? '', config)
+      if (!quote.ok) {
+        if (quote.reason === 'disabled') return jsonError('Delivery is currently unavailable.', 422)
+        if (quote.reason === 'outside_area') return jsonError(`Delivery is limited to ${config.serviceCity}, ${config.serviceState}.`, 422)
+        if (quote.reason === 'zone_not_found') return jsonError('We could not identify a delivery zone for this address.', 422)
+        if (quote.reason === 'manual_confirmation_required') return jsonError('This delivery address requires manual confirmation.', 422)
+        if (quote.reason === 'not_ready') return jsonError('Delivery zones have not been configured yet.', 422)
+        if (quote.reason === 'ambiguous_zone') return jsonError('Delivery zones need to be reviewed before this address can be served.', 503)
+        return jsonError('Delivery configuration is invalid or unavailable.', 503)
+      }
+      const expectedQuote = input.expectedDeliveryQuote
+      if (!expectedQuote || !isDeliveryQuoteSnapshotCurrent(expectedQuote, quote)) {
+        return NextResponse.json({
+          error: 'DELIVERY_QUOTE_CHANGED',
+          previousQuote: expectedQuote,
+          currentQuote: {
+            feeCents: Math.round(quote.fee * 100),
+            fee: quote.fee,
+            zoneKey: quote.zone?.zoneKey ?? null,
+            zoneName: quote.zone?.name ?? null,
+            reason: 'current_server_quote_differs_from_checkout_preview',
+          },
+          config,
+          verifiedAddress: {
+            city: postal.localidade,
+            state: postal.uf,
+            neighborhood: postal.bairro ?? '',
+          },
+        }, { status: 409, headers: { 'Cache-Control': 'no-store' } })
+      }
+      deliveryFee = quote.fee
+      deliveryZoneName = quote.zone?.name ?? null
+      verifiedNeighborhood = postal.bairro ?? ''
+    } catch (error) {
+      console.error('Could not validate delivery configuration or ZIP code.', error)
+      return jsonError('Could not validate delivery right now. Try again.', 503)
+    }
   }
 
   const changeFor = input.paymentMethod === 'cash' ? parseChangeFor(input.changeFor) : null
@@ -197,7 +300,7 @@ export async function POST(request: Request) {
       address: input.deliveryMethod === 'delivery' ? input.address : '',
       number: input.deliveryMethod === 'delivery' ? input.number : '',
       complement: input.deliveryMethod === 'delivery' ? input.complement : '',
-      neighborhood: input.deliveryMethod === 'delivery' ? input.neighborhood : '',
+      neighborhood: input.deliveryMethod === 'delivery' ? verifiedNeighborhood : '',
       zipCode: input.deliveryMethod === 'delivery' ? input.zipCode : '',
       reference: input.deliveryMethod === 'delivery' ? input.reference : '',
       paymentMethod: input.paymentMethod,
@@ -205,9 +308,10 @@ export async function POST(request: Request) {
       deliveryFee,
     }
 
-    const { data: order, error } = await supabase.rpc('create_order_atomic', {
+    const { data: result, error } = await supabase.rpc('create_order_atomic_checked', {
       p_order: orderPayload,
-      p_items: input.items,
+      p_items: input.items.map(({ productId, quantity }) => ({ productId, quantity })),
+      p_expected_items: input.items.map(({ productId, expectedUnitPriceCents }) => ({ productId, expectedUnitPriceCents })),
     })
     if (error) {
       if (error.message.includes('PRODUCT_UNAVAILABLE')) {
@@ -221,11 +325,20 @@ export async function POST(request: Request) {
       }
       throw error
     }
+    if (result && typeof result === 'object' && 'staleCatalog' in result && result.staleCatalog === true) {
+      return NextResponse.json({
+        error: 'MENU_CHANGED',
+        products: 'products' in result && Array.isArray(result.products) ? result.products : [],
+      }, { status: 409, headers: { 'Cache-Control': 'no-store' } })
+    }
+    const order = result && typeof result === 'object' && 'order' in result ? result.order : null
     if (!order || typeof order !== 'object' || !('id' in order)) {
       throw new Error('Order persistence returned an invalid result.')
     }
 
-    return NextResponse.json({ order }, {
+    return NextResponse.json({
+      order: deliveryZoneName ? { ...order, deliveryZone: deliveryZoneName } : order,
+    }, {
       status: 201,
       headers: { 'Cache-Control': 'no-store' },
     })

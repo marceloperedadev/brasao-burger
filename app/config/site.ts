@@ -3,7 +3,7 @@
 // BRASÃO BURGER — CONFIGURAÇÃO DO SITE
 // =========================================================
 
-const WHATSAPP_NUMBER = '5512991234567';
+const WHATSAPP_NUMBER = '5512997093459';
 
 type WhatsAppUrl = `https://wa.me/${string}?text=${string}`;
 
@@ -59,17 +59,11 @@ export const SITE_CONFIG = {
   // LOCALIZAÇÃO
   // -------------------------------------------------------
   location: {
-    address:
-      'Praça Santa Teresinha, 42 - Centro, Taubaté - SP, 12020-100',
+    address: 'Esquina da Praça Santa Terezinha — Taubaté/SP',
 
     city: 'Taubaté',
 
     state: 'SP',
-
-    zipCode: '12020-100',
-
-    maps:
-      'https://www.google.com/maps/search/?api=1&query=Pra%C3%A7a+Santa+Teresinha%2C+42%2C+Centro%2C+Taubat%C3%A9+-+SP',
   },
 
   // -------------------------------------------------------
@@ -78,50 +72,50 @@ export const SITE_CONFIG = {
   openingHours: {
     monday: {
       label: 'Segunda-feira',
-      open: null,
-      close: null,
-      closed: true,
+      open: '18:00',
+      close: '00:00',
+      closed: false,
     },
 
     tuesday: {
       label: 'Terça-feira',
       open: '18:00',
-      close: '23:00',
+      close: '00:00',
       closed: false,
     },
 
     wednesday: {
       label: 'Quarta-feira',
       open: '18:00',
-      close: '23:00',
+      close: '00:00',
       closed: false,
     },
 
     thursday: {
       label: 'Quinta-feira',
       open: '18:00',
-      close: '23:00',
+      close: '00:00',
       closed: false,
     },
 
     friday: {
       label: 'Sexta-feira',
       open: '18:00',
-      close: '23:30',
+      close: '02:00',
       closed: false,
     },
 
     saturday: {
       label: 'Sábado',
       open: '18:00',
-      close: '23:30',
+      close: '02:00',
       closed: false,
     },
 
     sunday: {
       label: 'Domingo',
       open: '18:00',
-      close: '23:00',
+      close: '00:00',
       closed: false,
     },
   },

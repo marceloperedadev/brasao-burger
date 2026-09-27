@@ -12,11 +12,13 @@ type CustomerInput = {
   complement: string
   neighborhood: string
   zipCode: string
+  city: string
+  state: string
   reference: string
 }
 
 const PROFILE_FIELDS =
-  'user_id,name,phone,address,number,complement,neighborhood,zip_code,reference'
+  'user_id,name,phone,address,number,complement,neighborhood,zip_code,city,state,reference'
 
 function jsonError(message: string, status: number) {
   return NextResponse.json(
@@ -80,6 +82,8 @@ function readCustomerInput(value: unknown): CustomerInput | null {
     complement: clean(body.complement),
     neighborhood: clean(body.neighborhood),
     zipCode: clean(body.zipCode).replace(/\D/g, ''),
+    city: clean(body.city),
+    state: clean(body.state).toUpperCase(),
     reference: clean(body.reference),
   }
 }
@@ -90,7 +94,7 @@ function validateCustomer(customer: CustomerInput) {
     return 'Informe um WhatsApp válido.'
   }
   if (customer.deliveryMethod === 'delivery') {
-    if (!customer.address || !customer.number || !customer.neighborhood) {
+    if (!customer.address || !customer.number || !customer.neighborhood || !customer.city || !/^[A-Z]{2}$/.test(customer.state)) {
       return 'Preencha o endereço, número e bairro para entrega.'
     }
     if (!/^\d{8}$/.test(customer.zipCode)) return 'Informe um CEP válido.'
@@ -100,7 +104,7 @@ function validateCustomer(customer: CustomerInput) {
     customer.number.length > 30 ||
     customer.complement.length > 120 ||
     customer.neighborhood.length > 120 ||
-    customer.reference.length > 180 ||
+    customer.reference.length > 180 || customer.city.length > 120 ||
     (customer.zipCode && !/^\d{8}$/.test(customer.zipCode))
   ) {
     return 'Revise os dados informados.'
@@ -184,6 +188,7 @@ export async function POST(request: Request) {
     if (auth.error) return auth.error
 
     const profile = {
+      user_id: auth.user.id,
       name: customer.name,
       phone: customer.phone,
       address: customer.address,
@@ -191,6 +196,8 @@ export async function POST(request: Request) {
       complement: customer.complement || null,
       neighborhood: customer.neighborhood,
       zip_code: customer.zipCode,
+      city: customer.city,
+      state: customer.state,
       reference: customer.reference || null,
     }
 

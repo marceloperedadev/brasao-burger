@@ -9,18 +9,15 @@ export function Footer() {
 
     tagline: 'Sabor que merece seu nome.',
 
-    address:
-      'Praça Santa Teresinha, 42 — Centro, Taubaté, SP',
+    address: 'Esquina da Praça Santa Terezinha — Taubaté/SP',
 
     links: {
       instagram:
-        'https://www.instagram.com/brasaoburguer_/',
+        'https://www.instagram.com/brasaoburger.taubate/',
 
       whatsapp:
         SITE_CONFIG.whatsapp.menu,
 
-      location:
-        'https://www.google.com/maps/search/?api=1&query=Pra%C3%A7a+Santa+Teresinha%2C+42%2C+Centro%2C+Taubat%C3%A9%2C+SP',
     },
   }
 
@@ -112,12 +109,8 @@ export function Footer() {
 
         <div className={styles.metaArea}>
 
-          <a
-            href={DATA.links.location}
-            target="_blank"
-            rel="noopener noreferrer"
+          <div
             className={styles.location}
-            aria-label="Ver localização do Brasão Burger no Google Maps"
           >
 
             <span
@@ -129,14 +122,7 @@ export function Footer() {
               {DATA.address}
             </span>
 
-            <span
-              className={styles.locationArrow}
-              aria-hidden="true"
-            >
-              ↗
-            </span>
-
-          </a>
+          </div>
 
 
           <div className={styles.footerLine}>

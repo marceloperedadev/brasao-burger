@@ -14,7 +14,7 @@ type Props = {
 }
 
 const INSTAGRAM_URL =
-  'https://www.instagram.com/brasao.burger/'
+  'https://www.instagram.com/brasaoburger.taubate/'
 
 export function HubCards({
   categories = [],

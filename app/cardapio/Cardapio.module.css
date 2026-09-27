@@ -390,6 +390,7 @@ a.trustBarItem:hover {
 .categorySection {
   width: 100%;
   min-width: 0;
+  touch-action: pan-y;
 
   padding-top: 32px;
 
@@ -2384,6 +2385,17 @@ a.trustBarItem:hover {
   border-radius: 4px;
 
   font-size: 10px;
+  line-height: 1.5;
+}
+
+.cartNotice {
+  margin: 10px 16px;
+  padding: 10px 12px;
+  color: #f5dfb8;
+  background: rgba(155, 106, 43, 0.12);
+  border: 1px solid rgba(196, 146, 77, 0.35);
+  border-radius: 4px;
+  font-size: 12px;
   line-height: 1.5;
 }
 

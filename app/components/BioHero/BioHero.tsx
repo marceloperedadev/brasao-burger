@@ -10,14 +10,13 @@ const DATA = {
   headline: 'Sabor que merece seu nome.',
   description:
     'O verdadeiro hambúrguer na parrilla em Taubaté. Ingredientes selecionados, molhos artesanais, porções rústicas e chope trincando.',
-  address:
-    'Praça Santa Teresinha, 42 — Centro, Taubaté, SP',
+  address: 'Esquina da Praça Santa Terezinha — Taubaté/SP',
 
   hours: {
-    monday: 'Seg · Fechado',
-    weekday: 'Ter — Qui · 18h às 23h',
-    friday: 'Sex — Sáb · 18h às 23h30',
-    sunday: 'Dom · 18h às 23h',
+    monday: 'Seg · 18h às 00h',
+    weekday: 'Ter — Qui · 18h às 00h',
+    friday: 'Sex — Sáb · 18h às 02h',
+    sunday: 'Dom · 18h às 00h',
   },
 
   links: {
@@ -25,10 +24,7 @@ const DATA = {
     order: '/cardapio',
 
     reservation:
-      'https://wa.me/5512991234567?text=Ol%C3%A1%2C%20gostaria%20de%20reservar%20uma%20mesa%20no%20Bras%C3%A3o%20Burger.',
-
-    location:
-      'https://www.google.com/maps/search/?api=1&query=Pra%C3%A7a+Santa+Teresinha%2C+42%2C+Centro%2C+Taubat%C3%A9%2C+SP',
+      'https://wa.me/5512997093459?text=Ol%C3%A1%2C%20gostaria%20de%20reservar%20uma%20mesa%20no%20Bras%C3%A3o%20Burger.',
   },
 }
 
@@ -213,12 +209,8 @@ export function BioHero() {
               ================================================= */}
           <div className={styles.metaArea}>
 
-            <a
-              href={DATA.links.location}
-              target="_blank"
-              rel="noopener noreferrer"
+            <div
               className={styles.location}
-              aria-label="Ver localização do Brasão Burger no Google Maps"
             >
               <span
                 className={styles.locationMarker}
@@ -231,13 +223,7 @@ export function BioHero() {
                 {DATA.address}
               </span>
 
-              <span
-                className={styles.locationArrow}
-                aria-hidden="true"
-              >
-                ↗
-              </span>
-            </a>
+            </div>
 
             <div className={styles.hours}>
 
