@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
+import { SITE_CONFIG } from './config/site'
 
 import './globals.css'
 
@@ -14,8 +15,14 @@ const inter = localFont({
 // SITE CONFIG — BRASÃO BURGER
 // =========================================================
 
-const SITE_URL = 'https://brasao-burger.vercel.app'
-const SITE_NAME = 'Brasão Burger'
+// Canonical URL for metadata, canonical links, Open Graph and JSON-LD.
+// NEXT_PUBLIC_SITE_URL wins so the deployed domain stays the single source of
+// truth (see .env.example); the config value is only the local fallback.
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ?? SITE_CONFIG.site.url
+).replace(/\/$/, '')
+
+const SITE_NAME = SITE_CONFIG.brand.name
 
 const SITE_DESCRIPTION =
   'O verdadeiro hambúrguer na parrilla em Taubaté. Ingredientes selecionados, molhos artesanais, porções rústicas e o melhor chope trincando da praça.'
@@ -183,7 +190,7 @@ export default function RootLayout({
 
     image: `${SITE_URL}${OG_IMAGE}`,
 
-    telephone: '+5512997093459',
+    telephone: `+${SITE_CONFIG.whatsapp.number}`,
 
     address: {
       '@type': 'PostalAddress',
@@ -201,7 +208,7 @@ export default function RootLayout({
     },
 
     sameAs: [
-      'https://www.instagram.com/brasaoburger.taubate/',
+      SITE_CONFIG.social.instagram,
     ],
 
     servesCuisine: [
@@ -213,7 +220,7 @@ export default function RootLayout({
 
     priceRange: '$$',
 
-    menu: 'https://wa.me/5512997093459',
+    menu: `https://wa.me/${SITE_CONFIG.whatsapp.number}`,
 
     openingHoursSpecification: [
       {

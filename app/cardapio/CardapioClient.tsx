@@ -147,12 +147,117 @@ function getDefaultPaymentMethod(): PaymentMethod {
   return 'cash'
 }
 
-function isPaymentMethodAccepted(method: PaymentMethod) {
-  return SITE_CONFIG.payment.accepted.some(
-    (item) => paymentMethodFromConfig(item.id) === method
-  )
+type PaymentOption = {
+  id: PaymentMethod
+  icon: string
+  label: string
+  description: string
 }
 
+const PAYMENT_OPTION_DETAILS: Record<
+  PaymentMethod,
+  Omit<PaymentOption, 'id' | 'label'>
+> = {
+  pix: {
+    icon: '◈',
+    description: 'Pagamento via Pix',
+  },
+
+  cash: {
+    icon: 'R$',
+    description: 'Pague na entrega ou retirada',
+  },
+
+  card: {
+    icon: '▣',
+    description: 'Crédito ou débito',
+  },
+}
+
+/*
+ * As opções do checkout derivam de SITE_CONFIG.payment.accepted: a mesma
+ * lista define a ordem exibida, a opção já selecionada e a validação feita
+ * pela API. Um meio de pagamento só aparece para o cliente (e só é aceito no
+ * pedido) quando estiver cadastrado nessa configuração.
+ */
+const ACCEPTED_PAYMENT_OPTIONS: PaymentOption[] =
+  SITE_CONFIG.payment.accepted
+    .map((method): PaymentOption | null => {
+      const id = paymentMethodFromConfig(method.id)
+      return id
+        ? {
+            id,
+            label: method.label,
+            ...PAYMENT_OPTION_DETAILS[id],
+          }
+        : null
+    })
+    .filter((option): option is PaymentOption => option !== null)
+
+/*
+ * A API de pedidos responde com mensagens técnicas em inglês. As mensagens
+ * conhecidas são traduzidas e qualquer texto não previsto cai em uma mensagem
+ * genérica em português, para o cliente nunca receber erro em inglês.
+ */
+const ORDER_ERROR_MESSAGES: Record<string, string> = {
+  'Request is too large.':
+    'O pedido ficou grande demais para ser enviado. Atualize a página e tente novamente.',
+  'Invalid content type.':
+    'Não foi possível enviar o pedido. Atualize a página e tente novamente.',
+  'Invalid request body.':
+    'Não foi possível ler os dados do pedido. Revise as informações e tente novamente.',
+  'Review the order details and try again.':
+    'Revise os dados do pedido e tente novamente.',
+  'Enter a valid name and WhatsApp number.':
+    'Confira o nome e o WhatsApp informados.',
+  'This payment method is unavailable.':
+    'A forma de pagamento escolhida não está disponível. Selecione outra opção.',
+  'Complete the delivery address and CEP.':
+    'Complete o endereço de entrega e o CEP.',
+  'Enter a valid CEP.': 'Informe um CEP válido.',
+  'Your session expired. Sign in again or continue as a guest.':
+    'Sua sessão expirou. Entre novamente ou continue como visitante.',
+  'Could not validate your session.':
+    'Não foi possível validar sua sessão. Tente novamente.',
+  'Could not validate the delivery ZIP code. Try again.':
+    'Não foi possível validar o CEP de entrega. Tente novamente.',
+  'Enter a valid delivery ZIP code.': 'Informe um CEP de entrega válido.',
+  'Delivery is currently unavailable.': 'A entrega está indisponível no momento.',
+  'We could not identify a delivery zone for this address.':
+    'Não encontramos uma zona de entrega para este endereço.',
+  'This delivery address requires manual confirmation.':
+    'Este endereço precisa de confirmação manual da loja.',
+  'Delivery zones have not been configured yet.':
+    'As zonas de entrega ainda não foram configuradas.',
+  'Delivery zones need to be reviewed before this address can be served.':
+    'A configuração de entrega precisa ser revisada antes de atender este endereço.',
+  'Delivery configuration is invalid or unavailable.':
+    'A configuração de entrega está inválida ou indisponível.',
+  'Could not validate delivery right now. Try again.':
+    'Não foi possível validar a entrega agora. Tente novamente.',
+  'Enter a valid change amount.': 'Informe um valor de troco válido.',
+  'The change amount must be greater than the order total.':
+    'O valor para troco precisa ser maior que o total do pedido.',
+  'This checkout attempt no longer matches the saved order. Refresh your order and try again.':
+    'Este pedido não corresponde mais ao que foi salvo. Atualize a página e tente novamente.',
+  'An item in your order is unavailable. Refresh the menu and try again.':
+    'Um item do pedido ficou indisponível. Atualize o cardápio e tente novamente.',
+  'The order could not be saved. Please retry before opening WhatsApp.':
+    'Não foi possível salvar o pedido. Tente novamente antes de abrir o WhatsApp.',
+}
+
+const DELIVERY_AREA_PREFIX = 'Delivery is limited to '
+
+function translateOrderError(message: string) {
+  const knownMessage = ORDER_ERROR_MESSAGES[message]
+  if (knownMessage) return knownMessage
+  if (message.startsWith(DELIVERY_AREA_PREFIX)) {
+    return `No momento entregamos apenas em ${message
+      .slice(DELIVERY_AREA_PREFIX.length)
+      .replace(/\.$/, '')}.`
+  }
+  return 'Não foi possível salvar o pedido. Tente novamente antes de abrir o WhatsApp.'
+}
 /*
  * =========================================================
  * ETAPAS DO CHECKOUT (PARA O INDICADOR DE PROGRESSO)
@@ -411,13 +516,6 @@ export default function CardapioClient({
     useState('')
 
   /*
-   * Feedback visual (troca o texto do botão
-   * para "Copiado!" por alguns segundos).
-   */
-  const [pixKeyCopied, setPixKeyCopied] =
-    useState(false)
-
-  /*
    * Status do horário de hoje ("aberto agora" /
    * "fechado agora"), exibido na barra de confiança
    * do cardápio. Começa null e só é preenchido depois
@@ -561,34 +659,22 @@ export default function CardapioClient({
 
   /*
    * =========================================================
-   * PIX — COPIAR CHAVE
+   * PIX — INSTRUÇÕES DE PAGAMENTO
    * =========================================================
+   *
+   * O pagamento é feito presencialmente no recebimento. O site não
+   * envia chave ou QR Code e não confirma o pagamento automaticamente.
    */
 
-  async function copyPixKey() {
-    const pixKey =
-      SITE_CONFIG.payment.pixKey
-
-    if (!pixKey) {
-      return
-    }
-
-    try {
-      await navigator.clipboard.writeText(
-        pixKey
-      )
-
-      setPixKeyCopied(true)
-
-      setTimeout(() => {
-        setPixKeyCopied(false)
-      }, 2500)
-    } catch (error) {
-      console.error(
-        'Erro ao copiar a chave Pix:',
-        error
-      )
-    }
+  function renderPixInstructions() {
+    return (
+      <div className={styles.pixPaymentNotice}>
+        <span className={styles.pixInstruction}>
+          Pagamento via Pix na retirada ou ao entregador no recebimento. O pedido
+          só é considerado pago após a confirmação do recebimento pela loja.
+        </span>
+      </div>
+    )
   }
 
   /*
@@ -1522,7 +1608,9 @@ export default function CardapioClient({
     lines.push('*PAGAMENTO*')
     if (order.paymentMethod === 'pix') {
       lines.push('Forma: Pix')
-      if (SITE_CONFIG.payment.pixKey) lines.push(`Chave Pix: ${SITE_CONFIG.payment.pixKey}`)
+      lines.push(order.deliveryMethod === 'delivery'
+        ? 'Pagamento: Pix ao entregador'
+        : 'Pagamento: Pix na retirada')
     }
     if (order.paymentMethod === 'card') lines.push('Forma: Cartao')
     if (order.paymentMethod === 'cash') {
@@ -1625,7 +1713,7 @@ export default function CardapioClient({
         }
         const currentFee = Number(result.currentQuote.fee)
         const currentZone = typeof result.currentQuote.zoneName === 'string' ? result.currentQuote.zoneName : 'atualizada'
-        setCustomerError(`A cotaÃ§Ã£o de entrega mudou. A nova taxa para ${currentZone} Ã© ${Number.isFinite(currentFee) ? formatPrice(currentFee) : 'indisponÃ­vel'}. Confira o endereÃ§o e confirme novamente.`)
+        setCustomerError(`A cotação de entrega mudou. A nova taxa para ${currentZone} é ${Number.isFinite(currentFee) ? formatPrice(currentFee) : 'indisponível'}. Confira o endereço e confirme novamente.`)
         setCheckoutStep('delivery')
         whatsappWindow.close()
         return
@@ -1655,7 +1743,9 @@ export default function CardapioClient({
         return
       }
       if (!response.ok || !result?.order) {
-        throw new Error(typeof result?.error === 'string' ? result.error : 'Nao foi possivel salvar o pedido. Tente novamente.')
+        throw new Error(typeof result?.error === 'string'
+          ? translateOrderError(result.error)
+          : 'Nao foi possivel salvar o pedido. Tente novamente.')
       }
 
       const order = result.order as PersistedOrder
@@ -2233,6 +2323,10 @@ export default function CardapioClient({
                         </p>
 
                       )}
+
+                      <span className={styles.detailsHint}>
+                        Ver detalhes <span aria-hidden="true">↗</span>
+                      </span>
 
                     </button>
 
@@ -3910,222 +4004,57 @@ export default function CardapioClient({
                   }
                 >
 
-                  <button
-                    type="button"
-                    className={`
-                      ${styles.checkoutOption}
-                      ${
-                        paymentMethod ===
-                        'pix'
-                          ? styles.checkoutOptionActive
-                          : ''
-                      }
-                    `}
-                    hidden={!isPaymentMethodAccepted('pix')}
-                    onClick={() =>
-                      setPaymentMethod(
-                        'pix'
-                      )
-                    }
-                  >
-
-                    <span
-                      className={
-                        styles.checkoutOptionIcon
+                  {ACCEPTED_PAYMENT_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`
+                        ${styles.checkoutOption}
+                        ${
+                          paymentMethod === option.id
+                            ? styles.checkoutOptionActive
+                            : ''
+                        }
+                      `}
+                      aria-pressed={paymentMethod === option.id}
+                      onClick={() =>
+                        setPaymentMethod(option.id)
                       }
                     >
-                      ◈
-                    </span>
 
-                    <span>
-                      <strong>
-                        Pix
-                      </strong>
+                      <span
+                        className={
+                          styles.checkoutOptionIcon
+                        }
+                      >
+                        {option.icon}
+                      </span>
 
-                      <small>
-                        Pagamento via Pix
-                      </small>
-                    </span>
+                      <span>
+                        <strong>
+                          {option.label}
+                        </strong>
 
-                    <span>
-                      {paymentMethod ===
-                      'pix'
-                        ? '✓'
-                        : ''}
-                    </span>
+                        <small>
+                          {option.description}
+                        </small>
+                      </span>
 
-                  </button>
+                      <span>
+                        {paymentMethod ===
+                        option.id
+                          ? '✓'
+                          : ''}
+                      </span>
 
-                  <button
-                    type="button"
-                    className={`
-                      ${styles.checkoutOption}
-                      ${
-                        paymentMethod ===
-                        'cash'
-                          ? styles.checkoutOptionActive
-                          : ''
-                      }
-                    `}
-                    hidden={!isPaymentMethodAccepted('cash')}
-                    onClick={() =>
-                      setPaymentMethod(
-                        'cash'
-                      )
-                    }
-                  >
-
-                    <span
-                      className={
-                        styles.checkoutOptionIcon
-                      }
-                    >
-                      R$
-                    </span>
-
-                    <span>
-                      <strong>
-                        Dinheiro
-                      </strong>
-
-                      <small>
-                        Pague na entrega ou
-                        retirada
-                      </small>
-                    </span>
-
-                    <span>
-                      {paymentMethod ===
-                      'cash'
-                        ? '✓'
-                        : ''}
-                    </span>
-
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`
-                      ${styles.checkoutOption}
-                      ${
-                        paymentMethod ===
-                        'card'
-                          ? styles.checkoutOptionActive
-                          : ''
-                      }
-                    `}
-                    hidden={!isPaymentMethodAccepted('card')}
-                    onClick={() =>
-                      setPaymentMethod(
-                        'card'
-                      )
-                    }
-                  >
-
-                    <span
-                      className={
-                        styles.checkoutOptionIcon
-                      }
-                    >
-                      ▣
-                    </span>
-
-                    <span>
-                      <strong>
-                        Cartão
-                      </strong>
-
-                      <small>
-                        Crédito ou débito
-                      </small>
-                    </span>
-
-                    <span>
-                      {paymentMethod ===
-                      'card'
-                        ? '✓'
-                        : ''}
-                    </span>
-
-                  </button>
+                    </button>
+                  ))}
 
                 </div>
 
                 {paymentMethod ===
                   'pix' && (
-
-                  <div
-                    className={
-                      styles.pixKeyBox
-                    }
-                  >
-
-                    {SITE_CONFIG.payment
-                      .pixKey ? (
-
-                      <>
-
-                        <span
-                          className={
-                            styles.pixKeyLabel
-                          }
-                        >
-                          Chave Pix
-                          {SITE_CONFIG
-                            .payment
-                            .pixKeyType
-                            ? ` (${SITE_CONFIG.payment.pixKeyType})`
-                            : ''}
-                        </span>
-
-                        <div
-                          className={
-                            styles.pixKeyRow
-                          }
-                        >
-                          <strong>
-                            {
-                              SITE_CONFIG
-                                .payment
-                                .pixKey
-                            }
-                          </strong>
-
-                          <button
-                            type="button"
-                            className={
-                              styles.pixCopyButton
-                            }
-                            onClick={
-                              copyPixKey
-                            }
-                          >
-                            {pixKeyCopied
-                              ? 'Copiado!'
-                              : 'Copiar'}
-                          </button>
-                        </div>
-
-                      </>
-
-                    ) : (
-
-                      <span
-                        className={
-                          styles.pixKeyLabel
-                        }
-                      >
-                        A chave Pix será
-                        enviada pelo Brasão
-                        Burger assim que o
-                        pedido for confirmado
-                        no WhatsApp.
-                      </span>
-
-                    )}
-
-                  </div>
-
+                  renderPixInstructions()
                 )}
 
                 {paymentMethod ===
@@ -4306,17 +4235,7 @@ export default function CardapioClient({
                     </span>
 
                     <strong>
-                      {paymentMethod ===
-                        'pix' &&
-                        'Pix'}
-
-                      {paymentMethod ===
-                        'cash' &&
-                        'Dinheiro'}
-
-                      {paymentMethod ===
-                        'card' &&
-                        'Cartão'}
+                      {ACCEPTED_PAYMENT_OPTIONS.find((option) => option.id === paymentMethod)?.label ?? ''}
                     </strong>
                   </div>
 
@@ -4341,6 +4260,11 @@ export default function CardapioClient({
                   <div><span>Total do pedido</span><strong>{displayedOrderTotal}</strong></div>
 
                 </div>
+
+                {paymentMethod ===
+                  'pix' && (
+                  renderPixInstructions()
+                )}
 
                 <div
                   className={

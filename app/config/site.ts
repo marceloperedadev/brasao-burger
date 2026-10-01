@@ -11,9 +11,6 @@ function createWhatsAppUrl(message: string): WhatsAppUrl {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
 
-const PIX_KEY: string | undefined = undefined
-const PIX_KEY_TYPE: string | undefined = undefined
-
 export const SITE_CONFIG = {
   // -------------------------------------------------------
   // MARCA
@@ -124,10 +121,6 @@ export const SITE_CONFIG = {
   // PAGAMENTOS
   // -------------------------------------------------------
   payment: {
-    pixKey: PIX_KEY,
-
-    pixKeyType: PIX_KEY_TYPE,
-
     accepted: [
       {
         id: 'dinheiro',
@@ -137,6 +130,14 @@ export const SITE_CONFIG = {
       {
         id: 'cartao',
         label: 'Cartão',
+      },
+
+      // Pix é pago manualmente na retirada ou ao entregador. A loja confirma
+      // o recebimento; selecionar Pix não marca o pedido como pago. A ordem
+      // desta lista define a exibição e a opção inicialmente selecionada.
+      {
+        id: 'pix',
+        label: 'Pix',
       },
     ],
   },

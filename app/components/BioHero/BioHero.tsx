@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import styles from './BioHero.module.css'
+import { SITE_CONFIG } from '@/app/config/site'
 
 const DATA = {
   name: 'Brasão Burger',
@@ -21,10 +22,16 @@ const DATA = {
 
   links: {
     menu: '/cardapio',
-    order: '/cardapio',
 
-    reservation:
-      'https://wa.me/5512997093459?text=Ol%C3%A1%2C%20gostaria%20de%20reservar%20uma%20mesa%20no%20Bras%C3%A3o%20Burger.',
+    // "Fazer pedido" vai direto ao WhatsApp com o pedido pré-redigido. O
+    // destino é diferente do "Ver cardápio" acima (navegação interna) e do
+    // "Reservar mesa" abaixo (outra mensagem), então as três ações da home
+    // deixam de convergir para /cardapio.
+    order: SITE_CONFIG.whatsapp.quickOrder,
+
+    reservation: `https://wa.me/${SITE_CONFIG.whatsapp.number}?text=${encodeURIComponent(
+      'Olá! Gostaria de reservar uma mesa no Brasão Burger.',
+    )}`,
   },
 }
 
@@ -169,11 +176,12 @@ export function BioHero() {
               ================================================= */}
           <div className={styles.actions}>
 
-            <Link
+            <a
               href={DATA.links.order}
               className={styles.primaryAction}
-              aria-label="Fazer pedido no cardápio do Brasão Burger"
-              prefetch
+              aria-label="Fazer pedido no Brasão Burger pelo WhatsApp"
+              target="_blank"
+              rel="noopener noreferrer"
             >
               <span>Fazer pedido</span>
 
@@ -183,7 +191,7 @@ export function BioHero() {
               >
                 →
               </span>
-            </Link>
+            </a>
 
             <a
               href={DATA.links.reservation}

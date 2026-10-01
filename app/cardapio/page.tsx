@@ -3,6 +3,11 @@ import { supabase } from '@/lib/supabase'
 import CardapioClient from './CardapioClient'
 
 export const metadata: Metadata = {
+  title: 'Cardápio e delivery',
+
+  description:
+    'Cardápio completo do Brasão Burger, com carrinho, cálculo de entrega em Taubaté e pedido finalizado pelo WhatsApp.',
+
   alternates: {
     canonical: '/cardapio',
   },
