@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { getAdminUserIds } from './env'
 
 type AdminAccess = {
   client: SupabaseClient
@@ -24,10 +25,7 @@ export async function requireAdmin(request: Request): Promise<AdminAuthResult> {
     ?.match(/^Bearer\s+(.+)$/i)?.[1]
   if (!token) return { response: error('Entre com uma conta autorizada.', 401) }
 
-  const userIds = (process.env.ADMIN_USER_IDS ?? '')
-    .split(',')
-    .map((userId) => userId.trim().toLowerCase())
-    .filter((userId) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(userId))
+  const userIds = getAdminUserIds()
   if (userIds.length === 0) {
     return { response: error('O acesso administrativo ainda não foi configurado.', 503) }
   }

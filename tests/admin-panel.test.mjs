@@ -14,7 +14,7 @@ const adminShell = await readFile(new URL('../app/admin/(protected)/AdminShell.t
 
 test('admin APIs authenticate Supabase user and require an explicit UUID allowlist', () => {
   assert.match(auth, /authorization/)
-  assert.match(auth, /process\.env\.ADMIN_USER_IDS/)
+  assert.match(auth, /getAdminUserIds\(\)/)
   assert.match(auth, /authClient\.auth\.getUser\(token\)/)
   assert.match(auth, /userIds\.includes\(data\.user\.id\.toLowerCase\(\)\)/)
   assert.match(auth, /SUPABASE_SECRET_KEY/)
