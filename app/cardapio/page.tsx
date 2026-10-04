@@ -16,20 +16,18 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function CardapioPage() {
+  let categories = null
+  let products = null
+  let hasLoadError = false
+
   try {
-    const {
-      data: categories,
-      error: categoriesError,
-    } = await supabase
+    const categoriesResult = await supabase
       .from('categories')
       .select('id, name, slug, sort_order')
       .eq('active', true)
       .order('sort_order', { ascending: true })
 
-    const {
-      data: products,
-      error: productsError,
-    } = await supabase
+    const productsResult = await supabase
       .from('products')
       .select(`
         id,
@@ -45,19 +43,23 @@ export default async function CardapioPage() {
       .eq('available', true)
       .order('sort_order', { ascending: true })
 
-    if (categoriesError || productsError) {
-      console.error('Falha ao carregar dados do Supabase no cardápio.', {
-        categoriesError,
-        productsError,
-      })
-      return <MenuLoadError />
-    }
+    categories = categoriesResult.data
+    products = productsResult.data
+    hasLoadError = Boolean(categoriesResult.error || productsResult.error)
 
-    return <CardapioClient categories={categories ?? []} products={products ?? []} />
+    if (hasLoadError) {
+      console.error('Falha ao carregar dados do Supabase no cardápio.', {
+        categoriesError: categoriesResult.error,
+        productsError: productsResult.error,
+      })
+    }
   } catch (error) {
     console.error('Falha inesperada ao inicializar o cardápio.', error)
-    return <MenuLoadError />
+    hasLoadError = true
   }
+
+  if (hasLoadError) return <MenuLoadError />
+  return <CardapioClient categories={categories ?? []} products={products ?? []} />
 }
 
 function MenuLoadError() {
