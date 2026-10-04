@@ -117,11 +117,14 @@ function readInput(value: unknown): OrderInput | null {
   if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > 100) return null
 
   const items: ItemInput[] = []
+  let totalQuantity = 0
   for (const item of body.items) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return null
     const record = item as Record<string, unknown>
     if (!Number.isSafeInteger(record.productId) || Number(record.productId) <= 0) return null
     if (!Number.isInteger(record.quantity) || Number(record.quantity) < 1 || Number(record.quantity) > 999) return null
+    totalQuantity += Number(record.quantity)
+    if (totalQuantity > 100) return null
     if (!Number.isSafeInteger(record.expectedUnitPriceCents) || Number(record.expectedUnitPriceCents) < 0) return null
     items.push({
       productId: Number(record.productId),
