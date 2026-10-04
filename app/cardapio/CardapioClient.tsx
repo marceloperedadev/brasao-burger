@@ -3175,7 +3175,7 @@ export default function CardapioClient({
                 <div className={styles.customerForm}>
                   {authReady && customerAccessToken && <p role="status">Conta conectada{authenticatedName ? ` como ${authenticatedName}` : ''}. Os dados salvos serão carregados ao continuar.</p>}
                   {!authReady && <p role="status">Verificando sua sessão…</p>}
-                  <p>Entre com sua conta Google para carregar seus dados salvos. O login é opcional e não bloqueia o pedido.</p>
+                  <p>O login é opcional e não bloqueia o pedido. Você também pode continuar como visitante.</p>
                   {customerError && <p className={styles.customerError} role="status">{customerError}</p>}
                   {authReady && !customerAccessToken && <button type="button" className={styles.customerPrimaryButton} onClick={signInWithGoogle} disabled={customerLoading}>
                     {customerLoading ? 'Conectando...' : 'Continuar com Google'}
@@ -3569,10 +3569,13 @@ export default function CardapioClient({
                           </span>
 
                           <input
-                            type="text"
-                            placeholder="Apto, casa..."
-                            value={
-                              customerForm.complement
+                  type="text"
+                  autoComplete="address-line2"
+                  maxLength={120}
+                  placeholder="Apto, casa..."
+                  value={
+                    customerForm.complement
+
                             }
                             onChange={(
                               event
@@ -3596,8 +3599,9 @@ export default function CardapioClient({
                           autoComplete="postal-code"
                           placeholder="00000-000"
                           maxLength={9}
-                          value={customerForm.zipCode}
-                          onChange={(event) => updateCustomerField('zipCode', event.target.value.replace(/\D/g, '').slice(0, 8))}
+  value={customerForm.zipCode.length > 5 ? `${customerForm.zipCode.slice(0, 5)}-${customerForm.zipCode.slice(5)}` : customerForm.zipCode}
+  onChange={(event) => updateCustomerField('zipCode', event.target.value.replace(/\D/g, '').slice(0, 8))}
+
                         />
                       </label>
 
@@ -3655,250 +3659,14 @@ export default function CardapioClient({
                         </span>
 
                         <input
-                          type="text"
-                          placeholder="Perto de..."
-                          value={
-                            customerForm.reference
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            updateCustomerField(
-                              'reference',
-                              event.target
-                                .value
-                            )
-                          }
-                        />
-                      </label>
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="address-line2"
+                  maxLength={30}
+                  placeholder="123"
+                  value={
+                    customerForm.number
 
-                    </>
-
-                  )}
-
-                  {customerError && (
-
-                    <p
-                      className={
-                        styles.customerError
-                      }
-                    >
-                      {
-                        customerError
-                      }
-                    </p>
-
-                  )}
-
-                  {deliveryMethod === 'delivery' && (customerForm.zipCode || customerForm.neighborhood) && (
-                    <div className={styles.orderTotals} aria-label="Resumo de entrega">
-                      <div><span>Subtotal</span><strong>{formatPrice(cartTotal)}</strong></div>
-                      <div><span>{deliveryQuote.ok && deliveryQuote.zone ? `Zona: ${deliveryQuote.zone.name}` : 'Taxa de entrega'}</span><strong>{displayedDeliveryFee}</strong></div>
-                      <div className={styles.orderGrandTotal}><span>Total</span><strong>{displayedOrderTotal}</strong></div>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    className={
-                      styles.customerPrimaryButton
-                    }
-                    onClick={
-                      saveCustomer
-                    }
-                    disabled={customerSaving}
-                  >
-                    {customerSaving ? 'Salvando...' : 'Continuar →'}
-                  </button>
-
-                </div>
-
-                )}
-
-              </div>
-
-            )}
-
-            {/* =================================================
-                ENTREGA
-                ================================================= */}
-
-            {checkoutStep ===
-              'delivery' && (
-
-              <div
-                className={
-                  styles.checkoutScreen
-                }
-              >
-
-                <div
-                  className={
-                    styles.checkoutHeader
-                  }
-                >
-
-                  <button
-                    type="button"
-                    className={
-                      styles.checkoutBack
-                    }
-                    onClick={() =>
-                      setCheckoutStep(
-                        'phone'
-                      )
-                    }
-                  >
-                    ← Voltar
-                  </button>
-
-                  <span
-                    className={
-                      styles.cartEyebrow
-                    }
-                  >
-                    ENTREGA
-                  </span>
-
-                  <h2>
-                    Como você vai receber?
-                  </h2>
-
-                  <p>
-                    Escolha entre receber em
-                    casa ou retirar no Brasão.
-                  </p>
-
-
-                  {customerAccessToken && <button type="button" className={styles.customerEditButton} onClick={signOutCustomer}>Sair da conta Google</button>}
-                </div>
-
-                {customerError && (
-                  <p className={styles.customerError} role="status">
-                    {customerError}
-                  </p>
-                )}
-
-                <div
-                  className={
-                    styles.checkoutOptions
-                  }
-                >
-
-                  <button
-                    type="button"
-                    className={`
-                      ${styles.checkoutOption}
-                      ${
-                        deliveryMethod ===
-                        'delivery'
-                          ? styles.checkoutOptionActive
-                          : ''
-                      }
-                    `}
-                    onClick={() =>
-                      setDeliveryMethod(
-                        'delivery'
-                      )
-                    }
-                  >
-
-                    <span
-                      className={
-                        styles.checkoutOptionIcon
-                      }
-                    >
-                      🛵
-                    </span>
-
-                    <span>
-                      <strong>
-                        Entrega
-                      </strong>
-
-                      <small>
-                        Informe o endereço para
-                        entrega
-                      </small>
-                    </span>
-
-                    <span>
-                      {deliveryMethod ===
-                      'delivery'
-                        ? '✓'
-                        : ''}
-                    </span>
-
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`
-                      ${styles.checkoutOption}
-                      ${
-                        deliveryMethod ===
-                        'pickup'
-                          ? styles.checkoutOptionActive
-                          : ''
-                      }
-                    `}
-                    onClick={() =>
-                      setDeliveryMethod(
-                        'pickup'
-                      )
-                    }
-                  >
-
-                    <span
-                      className={
-                        styles.checkoutOptionIcon
-                      }
-                    >
-                      📍
-                    </span>
-
-                    <span>
-                      <strong>
-                        Retirada
-                      </strong>
-
-                      <small>
-                        Retire no Brasão Burger
-                      </small>
-                    </span>
-
-                    <span>
-                      {deliveryMethod ===
-                      'pickup'
-                        ? '✓'
-                        : ''}
-                    </span>
-
-                  </button>
-
-                </div>
-
-                {deliveryMethod ===
-                  'delivery' &&
-                  customerForm.address.trim() && (
-
-                  <div
-                    className={
-                      styles.customerSummary
-                    }
-                  >
-
-                    <div>
-                      <span>
-                        Endereço para entrega
-                      </span>
-
-                      <strong>
-                        {
-                          customerForm.address
-                        },{' '}
-                        {
-                          customerForm.number
                         }
                       </strong>
                     </div>
