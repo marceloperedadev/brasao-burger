@@ -246,7 +246,10 @@ export async function POST(request: Request) {
       const settingsClient = createAdminClient()
       const config = await loadDeliveryConfig(settingsClient)
 
-      const postalResponse = await fetch(`https://viacep.com.br/ws/${input.zipCode}/json/`, { cache: 'no-store' })
+      const postalResponse = await fetch(`https://viacep.com.br/ws/${input.zipCode}/json/`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5_000),
+      })
       if (!postalResponse.ok) return jsonError('Could not validate the delivery ZIP code. Try again.', 503)
       const postal = await postalResponse.json() as { erro?: boolean; localidade?: string; uf?: string; bairro?: string }
       if (postal.erro || !postal.localidade || !postal.uf) return jsonError('Enter a valid delivery ZIP code.', 400)
