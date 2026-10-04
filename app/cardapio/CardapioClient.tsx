@@ -3646,46 +3646,21 @@ export default function CardapioClient({
                         />
                       </label>
 
-                      <label
-                        className={
-                          styles.customerField
-                        }
-                      >
-                        <span>
-                          Referência
-                          <small>
-                            opcional
-                          </small>
-                        </span>
-
+                      <label className={styles.customerField}>
+                        <span>Referência <small>opcional</small></span>
                         <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="address-line2"
-                  maxLength={30}
-                  placeholder="123"
-                  value={
-                    customerForm.number
-
-                        }
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Bairro
-                      </span>
-
-                      <strong>
-                        {
-                          customerForm.neighborhood
-                        }
-                      </strong>
-                    </div>
-
-                  </div>
-
-                )}
+                          type="text"
+                          autoComplete="address-line2"
+                          maxLength={180}
+                          placeholder="Próximo ao mercado..."
+                          value={customerForm.reference}
+                          onChange={(event) => updateCustomerField('reference', event.target.value)}
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+              )}
 
                 <button
                   type="button"
