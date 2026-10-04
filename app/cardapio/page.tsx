@@ -16,86 +16,69 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function CardapioPage() {
-  const {
-    data: categories,
-    error: categoriesError,
-  } = await supabase
-    .from('categories')
-    .select(
-      'id, name, slug, sort_order'
-    )
-    .eq('active', true)
-    .order('sort_order', {
-      ascending: true,
-    })
+  let categories = null
+  let products = null
+  let hasLoadError = false
 
-  const {
-    data: products,
-    error: productsError,
-  } = await supabase
-    .from('products')
-    .select(`
-      id,
-      category_id,
-      name,
-      description,
-      price,
-      image_url,
-      featured,
-      available,
-      sort_order
-    `)
-    .eq('available', true)
-    .order('sort_order', {
-      ascending: true,
-    })
+  try {
+    const categoriesResult = await supabase
+      .from('categories')
+      .select('id, name, slug, sort_order')
+      .eq('active', true)
+      .order('sort_order', { ascending: true })
 
-  if (
-    categoriesError ||
-    productsError
-  ) {
-    console.error('Falha ao carregar dados do Supabase no cardápio.', {
-      categoriesError,
-      productsError,
-    })
+    const productsResult = await supabase
+      .from('products')
+      .select(`
+        id,
+        category_id,
+        name,
+        description,
+        price,
+        image_url,
+        featured,
+        available,
+        sort_order
+      `)
+      .eq('available', true)
+      .order('sort_order', { ascending: true })
 
-    return (
-      <main
-        style={{
-          minHeight: '100vh',
-          display: 'grid',
-          placeItems: 'center',
-          padding: '24px',
-          background: '#090807',
-          color: '#f5eee2',
-        }}
-      >
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '560px',
-          }}
-        >
-          <h1>
-            Erro ao carregar o cardápio
-          </h1>
+    categories = categoriesResult.data
+    products = productsResult.data
+    hasLoadError = Boolean(categoriesResult.error || productsResult.error)
 
-          <p>
-            Não foi possível carregar os produtos agora. Tente novamente mais tarde.
-          </p>
-        </div>
-      </main>
-    )
+    if (hasLoadError) {
+      console.error('Falha ao carregar dados do Supabase no cardápio.', {
+        categoriesError: categoriesResult.error,
+        productsError: productsResult.error,
+      })
+    }
+  } catch (error) {
+    console.error('Falha inesperada ao inicializar o cardápio.', error)
+    hasLoadError = true
   }
 
+  if (hasLoadError) return <MenuLoadError />
+  return <CardapioClient categories={categories ?? []} products={products ?? []} />
+}
+
+function MenuLoadError() {
   return (
-    <CardapioClient
-      categories={
-        categories ?? []
-      }
-      products={
-        products ?? []
-      }
-    />
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        padding: '24px',
+        background: '#090807',
+        color: '#f5eee2',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: '560px' }}>
+        <p style={{ color: '#e7a33e', fontWeight: 700 }}>Brasão Burger</p>
+        <h1>Cardápio temporariamente indisponível</h1>
+        <p>Não conseguimos carregar os produtos agora. Tente novamente em alguns instantes.</p>
+      </div>
+    </main>
   )
 }

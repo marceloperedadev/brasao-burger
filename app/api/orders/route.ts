@@ -117,11 +117,14 @@ function readInput(value: unknown): OrderInput | null {
   if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > 100) return null
 
   const items: ItemInput[] = []
+  let totalQuantity = 0
   for (const item of body.items) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return null
     const record = item as Record<string, unknown>
     if (!Number.isSafeInteger(record.productId) || Number(record.productId) <= 0) return null
     if (!Number.isInteger(record.quantity) || Number(record.quantity) < 1 || Number(record.quantity) > 999) return null
+    totalQuantity += Number(record.quantity)
+    if (totalQuantity > 100) return null
     if (!Number.isSafeInteger(record.expectedUnitPriceCents) || Number(record.expectedUnitPriceCents) < 0) return null
     items.push({
       productId: Number(record.productId),
@@ -243,7 +246,10 @@ export async function POST(request: Request) {
       const settingsClient = createAdminClient()
       const config = await loadDeliveryConfig(settingsClient)
 
-      const postalResponse = await fetch(`https://viacep.com.br/ws/${input.zipCode}/json/`, { cache: 'no-store' })
+      const postalResponse = await fetch(`https://viacep.com.br/ws/${input.zipCode}/json/`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5_000),
+      })
       if (!postalResponse.ok) return jsonError('Could not validate the delivery ZIP code. Try again.', 503)
       const postal = await postalResponse.json() as { erro?: boolean; localidade?: string; uf?: string; bairro?: string }
       if (postal.erro || !postal.localidade || !postal.uf) return jsonError('Enter a valid delivery ZIP code.', 400)
