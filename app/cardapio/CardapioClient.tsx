@@ -1106,18 +1106,6 @@ export default function CardapioClient({
     setCheckoutStep('delivery')
   }
 
-  async function signOutCustomer() {
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      setCustomerError('Não foi possível sair da conta agora.')
-      return
-    }
-    setCustomerAccessToken('')
-    setCustomerFound(false)
-    setShowCustomerForm(true)
-    setCustomerError('')
-  }
-
   useEffect(() => {
     let frame = 0
     try {
